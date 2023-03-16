@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-02-19 14:42:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-22 18:54:18
+# @Last Modified time: 2023-03-16 13:38:57
 
 import abc
 from neuron import h
@@ -248,7 +248,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
         kwargs = {'name': id, 'cell': self, 'Cm0': Cm0}
         if mech is not None:
             kwargs.update({'mechname': mech, 'states': states})
-        return self.getSectionClass(mech)(*args, **kwargs)
+        secclass = self.getSectionClass(mech)
+        return secclass(*args, **kwargs)
 
     def setTimeProbe(self):
         ''' Set time probe. '''

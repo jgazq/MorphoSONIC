@@ -3,12 +3,12 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-06-04 18:26:42
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-22 13:26:33
+# @Last Modified time: 2023-03-16 13:37:49
 
 ''' Utilities to manipulate HOC objects. '''
 
 import numpy as np
-from neuron import h, hclass
+from neuron import h, hclass, nrn
 
 from PySONIC.utils import isWithin, logger
 from ..constants import *
@@ -184,7 +184,7 @@ class ExtField():
         self.section.setVext(self.xamp * value)
 
 
-class Section(hclass(h.Section)):
+class Section(nrn.Section):
     ''' Interface to a Hoc Section with nseg=1. '''
 
     stimon_var = 'stimon'
@@ -196,13 +196,13 @@ class Section(hclass(h.Section)):
             :param cell: section cell
             :param Cm0: resting membrane capacitance (uF/cm2)
         '''
-        self.passive_mechname = cell.passive_mechname
         if name is None:
             raise ValueError('section must have a name')
         if cell is not None:
             super().__init__(name=name, cell=cell)
         else:
             super().__init__(name=name)
+        self.passive_mechname = cell.passive_mechname
         self.Cm0 = Cm0
         self.nseg = 1
         self.has_ext_mech = False

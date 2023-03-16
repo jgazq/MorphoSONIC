@@ -1,20 +1,15 @@
 # -*- coding: utf-8 -*-
 # @Author: Theo Lemaire
-# @Email: theo.lemaire@epfl.ch
+# @Email: theo.lemaire1@gmail.com
 # @Date:   2019-06-04 18:26:42
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-07-27 17:53:23
-# -*- coding: utf-8 -*-
-# @Author: Theo Lemaire
-# @Date:   2017-06-13 09:40:02
-# @Email: theo.lemaire@epfl.ch
-# @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2018-08-30 10:44:35
+# @Last Modified time: 2023-03-16 13:22:53
 
 import os
 from setuptools import setup
 
 readme_file = 'README.md'
+requirements_file = 'requirements.txt'
 
 
 def readme():
@@ -42,6 +37,12 @@ def getFiles(path):
     return [f'{path}/{x}' for x in os.listdir(path)]
 
 
+def get_requirements():
+    with open(requirements_file, 'r', encoding="utf8") as f:
+        reqs = f.read().splitlines() 
+    return reqs
+
+
 setup(
     name='MorphoSONIC',
     version='1.0',
@@ -62,11 +63,6 @@ setup(
     license='MIT',
     packages=['MorphoSONIC'],
     scripts=getFiles('scripts') + getFiles('tests') + getFiles('examples'),
-    install_requires=[
-        'numpy>=1.10',
-        'matplotlib>=2'
-        'pandas>=0.21',
-        'boltons>=20.1.0'
-    ],
+    install_requires=get_requirements(),
     zip_safe=False
 )

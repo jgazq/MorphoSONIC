@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-08-23 09:43:18
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-16 11:42:54
+# @Last Modified time: 2022-09-19 11:21:16
 
 import numpy as np
 
@@ -135,8 +135,6 @@ class GaussianAcousticSource(GaussianSource, AbstractAcousticSource):
 
 class PlanarDiskTransducerSource(ExtracellularSource, AcousticSource):
     ''' Acoustic source coming from a distant disk planar transducer.
-        For now, acoustic propagation is only computed along the transducer normal axis.
-        The rest of the field is computed assuming radial symmetry.
     '''
 
     conv_factor = 1e0
@@ -473,3 +471,85 @@ class PlanarDiskTransducerSource(ExtracellularSource, AcousticSource):
 
         # Compute the particle velocity needed to generate the acoustic amplitude value at this node
         return A / self.relNormalAxisAmp(0.)  # m/s
+
+
+class RingTransducerSource(PlanarDiskTransducerSource):
+
+    def __init__(self, x, din, dout, f, u=None, rho=1e3, c=1500, theta=0):
+        ''' Initialization.
+
+            :param din: inner diameter (m)
+            :param dout: outer diameter (m)
+            :param u: particle velocity normal to the transducer surface (m/s)
+            :param rho: medium density (kg/m3)
+            :param c: medium speed of sound (m/s)
+            :param theta: transducer angle of incidence (radians)
+        '''
+        self.din = din
+        self.dout = dout
+        self.rho = rho  # default value from Kyriakou 2015
+        self.c = c      # default value from Kyriakou 2015
+        self.theta = theta
+        self.u = u
+        AcousticSource.__init__(self, f)
+        ExtracellularSource.__init__(self, x)
+    
+    @property
+    def din(self):
+        return self._din
+
+    @din.setter
+    def din(self, value):
+        value = self.checkFloat('din', value)
+        self.checkStrictlyPositive('din', value)
+        self._din = value
+    
+    @property
+    def dout(self):
+        return self._dout
+
+    @dout.setter
+    def dout(self, value):
+        value = self.checkFloat('dout', value)
+        self.checkStrictlyPositive('dout', value)
+        self.checkStrictlyPositive('dout - din', value - self.din)
+        self._dout = value
+
+    @staticmethod
+    def inputs():
+        inps = PlanarDiskTransducerSource.inputs()
+        del inps['r']
+        return {
+            'din': {
+                'desc': 'inner diameter',
+                'label': 'din',
+                'unit': 'm',
+                'precision': 1
+            },
+            'dout': {
+                'desc': 'outer diameter',
+                'label': 'dout',
+                'unit': 'm',
+                'precision': 1
+            },
+            **inps
+        }
+    
+    def outer_area(self):
+        return np.pi * self.dout**2 / 4
+    
+    def area(self):
+        ''' Transducer surface area. '''
+        return np.pi * (self.dout**2 - self.din**2) / 4
+    
+    def getXYSources(self, m=None, d='concentric'):
+        ''' Wrapper around the method to obtain a source distribution for this transducer.
+
+            :param m: number of point sources we want to use to approximate the transducer surface
+            :param d: type of point sources distribution used
+        '''
+        if m is None:
+            m = int(np.ceil(self.source_density * self.outer_area()))
+        x, y = getCircle2DGrid(self.dout / 2, m, d)
+        isvalid = y**2 > self.din**2 / 4 - x**2
+        return x[isvalid], y[isvalid]

@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-06-07 14:42:18
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-22 14:37:08
+# @Last Modified time: 2022-09-19 10:32:07
 
 import numpy as np
 from neuron import h, hclass
@@ -195,6 +195,9 @@ class PointerVector(hclass(h.Vector)):
     ''' Interface to a pointing vector, i.e. a vector that can "point" toward
         subsets of other vectors.
     '''
+
+    def __new__(cls):
+        super().__new__()
 
     def __init__(self, *args, **kwargs):
         ''' Initialization. '''

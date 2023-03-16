@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2017-08-24 11:55:07
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-07-27 17:46:47
+# @Last Modified time: 2022-11-10 13:19:24
 
 ''' Run E-STIM simulations of a specific point-neuron. '''
 
@@ -28,9 +28,12 @@ def main():
     queue = getattr(PointNeuron, simQueue_func)(
         *sim_inputs, outputdir=args['outputdir'], overwrite=args['overwrite'])
     output = []
+    print(queue)
     for pneuron in args['neuron']:
         node = Node(pneuron)
+        print(node)
         batch = Batch(node.simAndSave if args['save'] else node.simulate, queue)
+        print(batch)
         output += batch(loglevel=args['loglevel'], mpi=args['mpi'])
 
     # Plot resulting profiles
