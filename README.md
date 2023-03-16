@@ -64,11 +64,8 @@ For Mac OSx and Ubuntu users, NEURON will be automatically installed as a Python
 ### MorphoSONIC package
 
 - Open a terminal
-- Clone the [PySONIC](https://github.com/tjjlemaire/PySONIC) repository and install it as a python package in a separate conda environment called `sonic`. The detailed installation instructions are on the PySONIC webpage.
-- If not already done, activate the `sonic` anaconda environment:
-
-```conda activate sonic```
-
+- Clone the `PySONIC` repository and install it as a python package in a separate conda environment called `sonic`. The detailed installation instructions are on the [PySONIC](https://github.com/tjjlemaire/PySONIC) webpage.
+- If not already done, activate the `sonic` anaconda environment: `conda activate sonic`
 - Clone the `MorphoSONIC` repository and install it as a python package:
 
 ```
@@ -79,7 +76,7 @@ pip install -e .
 
 All package dependencies (numpy, scipy, ...) should be installed automatically.
 
-## Pre-compilation of NEURON membrane mechanisms
+### Pre-compilation of NEURON membrane mechanisms
 
 In order to use the package, you will need to compile a specific set of equations describing the membrane dynamics of the different neuron types.
 
@@ -90,13 +87,13 @@ For Windows users:
 - Upon completion, hit enter in the terminal to close it.
 
 For Mac OSx and Ubuntu users:
-- Open a terminal window and move to the directory containing the source files for the membrane mechanisms:
+- Open a terminal window
+- Move to the directory containing the source files for the membrane mechanisms, and run the `nrnivmodl` executable:
 
-```cd <path_to_MorphoSONIC_package>/MorphoSONIC/nmodl/```
-
-- Run the *nrnivmodl* executable:
-
-```nrnivmodl```
+```
+cd <path_to_MorphoSONIC_package>/MorphoSONIC/nmodl/
+nrnivmodl
+```
 
 # Usage
 
