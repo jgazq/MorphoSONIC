@@ -1,6 +1,6 @@
 # Description
 
-`MorphoSONIC` is a Python+NEURON implementation of **spatially extended representations** of the **multi-Scale Optimized Neuronal Intramembrane Cavitation (SONIC) model [1]** to simulate the distributed electrical response of morphologically realistic neuron representations to acoustic stimuli, as predicted by the *intramembrane cavitation* hypothesis.
+`MorphoSONIC` is a Python+NEURON implementation of **spatially extended representations** of the **multi-Scale Optimized Neuronal Intramembrane Cavitation (SONIC) model [1]** to simulate the distributed electrical response of morphologically realistic neuron representations to acoustic stimuli, as predicted by the *intramembrane cavitation* hypothesis. The details of the MorphoSONIC framework and of its application to study ultrasound neuromodulation in peripheral nerve fibers are described in [2].
 
 This package expands features from the `PySONIC` package (https://github.com/tjjlemaire/PySONIC).
 
@@ -161,21 +161,19 @@ The SONIC model predicts a time-varying capacitance introducing a nonlinear disc
 
 ## Future developments
 
-Here is a list of future developments:
-
 - [ ] Spatial expansion into more complex neuronal morphologies (axons, soma, dendrites)
-- [ ] Experimental validation of the fiber models
 
 # Authors
 
-Code written and maintained by Theo Lemaire (theo.lemaire@epfl.ch).
+Code written and maintained by Theo Lemaire (theo.lemaire1@gmail.com).
 
 # License & citation
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-If this code base contributes to a project that leads to a scientific publication, please acknowledge this fact by citing [Lemaire, T., Vicari E., Neufeld, E., Kuster, N., and Micera, S. (2021). MorphoSONIC: a morphologically structured intramembrane cavitation model reveals fiber-specific neuromodulation by ultrasound. iScience]()
+If this code base contributes to a project that leads to a scientific publication, please acknowledge this fact by citing [Lemaire, T., Vicari E., Neufeld, E., Kuster, N., and Micera, S. (2021). MorphoSONIC: a morphologically structured intramembrane cavitation model reveals fiber-specific neuromodulation by ultrasound. iScience](https://www.cell.com/iscience/fulltext/S2589-0042(21)01053-1)
 
 # References
 
 [1] Lemaire, T., Neufeld, E., Kuster, N., and Micera, S. (2019). Understanding ultrasound neuromodulation using a computationally efficient and interpretable model of intramembrane cavitation. J. Neural Eng.
+[2] Lemaire, T., Vicari E., Neufeld, E., Kuster, N., and Micera, S. (2021). MorphoSONIC: a morphologically structured intramembrane cavitation model reveals fiber-specific neuromodulation by ultrasound. iScience.
