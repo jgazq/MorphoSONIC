@@ -44,129 +44,55 @@ Most point-neuron models defined in the PySONIC package have been translated to 
 # Requirements
 
 - Python 3.6+
-- NEURON 7.x
-- PySONIC package
-- Other dependencies (numpy, scipy, ...) are installed automatically upon installation of the package.
+- NEURON 8+
+- `PySONIC` package (https://github.com/tjjlemaire/PySONIC)
 
 # Installation
 
-## NEURON 7.x
+### NEURON
 
-**In the following instructions, replace 7.x by the appropriate *NEURON* version.**
-
-### Windows
-
+If you are using a **Windows computer**, you'll first need to **install NEURON manually**:
 1. Go to the [NEURON website](https://neuron.yale.edu/neuron/download/) and download the appropriate *NEURON* installer for Windows
 2. Run the *NEURON* installer and follow the procedure:
   - Confirm installation directory (`c:\nrn`)
   - Check the option "Set DOS environment"
-  - Click on "Install". After completion you should see a new folder named `NEURON 7.x x86_64` on your Desktop.
-3. Check that *NEURON* has been properly installed by running the demo:
-  - Open the `NEURON 7.x x86_64` folder and run the "NEURON Demo" executable. You should see the NEURON GUI appearing.
-  - Click on "Release" on the "NEURON Demonstrations" window. A number of windows should appear.
-  - Click on "Init & Run" button from the "RunControl" window. You should see the trace of a single action potential on the first Graph window.
-  - Exit *NEURON* by clicking on "File->Quit" in the "NEURON Main Menu" window
-4. Log out and back in to make sure your environment variables are updated.
-5. Open a terminal and check that the *NEURON* import in Python works correctly (no error should be raised):
+  - Click on "Install". After completion you should see a new folder named `NEURON 8.x x86_64` on your Desktop.
+3. Log out and back in to make sure your environment variables are updated.
+
+For Mac OSx and Ubuntu users, NEURON will be automatically installed as a Python dependency, so you don't need to pre-install anything. 
+
+### MorphoSONIC package
+
+- Open a terminal
+- Clone the [PySONIC](https://github.com/tjjlemaire/PySONIC) repository and install it as a python package in a separate conda environment called `sonic`. The detailed installation instructions are on the PySONIC webpage.
+- If not already done, activate the `sonic` anaconda environment:
+
+```conda activate sonic```
+
+- Clone the `MorphoSONIC` repository and install it as a python package:
+
 ```
-python
->>> from neuron import h
->>> quit()
+git clone https://github.com/tjjlemaire/MorphoSONIC.git
+cd MorphoSONIC
+pip install -e .
 ```
 
-### Mac
+All package dependencies (numpy, scipy, ...) should be installed automatically.
 
-1. Go to the [NEURON website](https://neuron.yale.edu/neuron/download/) and download the appropriate *NEURON* installer for Mac
-2. Run the *NEURON* installer
-3. Check that *NEURON* has been properly installed by running the demo:
-  - Try to run the *neurondemo* (in the NEURON folder). If the NEURON GUI appears correctly, go to 4. Otherwise, follow the steps:
-  - Install *XQuartz* from https://www.xquartz.org
-  - Restart the computer
-  - Try to run the *neurondemo* again. It should execute properly.
-4. If you don’t have *XCode*, install it from the App Store
-5. Go to https://developer.apple.com/downloads, sign with the ID Apple, download the right Command Line Tools based on your OS X and XCode versions, and install it
-6. Open a terminal and add *NEURON* python package to your python path: `export PYTHONPATH=/Applications/NEURON-7.x/nrn/lib/python`
-7. Restart the computer
-8. Open a terminal and check that the *NEURON* import in Python works correctly (no error should be raised):
-```
-python
->>> from neuron import h
->>> quit()
-```
-
-### Ubuntu
-
-1. Open a terminal
-2. Install the *ncurses* LINUX package: `apt install ncurses-dev`
-3. Download the [NEURON source code archive](https://neuron.yale.edu/ftp/neuron/versions/v-7.x/nrn-7.x.tar.gz)
-4. Unzip the archive: `tar xzf nrn-7.x.tar.gz`
-5. Install NEURON (without GUI):
-```
-cd nrn-7.x
-./configure --prefix=/usr/local/nrn-7.x --without-iv --with-nrnpython=<path/to/python/executable>
-make
-make install
-make clean
-```
-6. Add *NEURON* executables to the global environment file:
-```
-vim /etc/environment
-PATH=<old_path>:/usr/local/nrn-7.x/x86_64/bin
-exit
-```
-7. Check that *NEURON* has been properly installed:
-```
-nrniv -python
-NEURON -- VERSION 7.x master (...) ...
-Duke, Yale, and the BlueBrain Project -- Copyright 1984-xxxx
-See http://neuron.yale.edu/neuron/credits
->>> quit()
-```
-8. Go back to unzipped archive directory: `cd <path/to/unzipped/archive>`
-9. Install the neuron package for Python 3.x:
-```
-cd src/nrnpython
-<path/to/python/executable> setup.py install
-```
-10. Open a terminal and check that the *NEURON* import in Python works correctly (no error should be raised):
-```
-python
->>> from neuron import h
->>> quit()
-```
-
-## PySONIC package
-
-- Download the PySONIC package (https://github.com/tjjlemaire/PySONIC)
-- Follow installation instruction written in the README file
-
-## MorphoSONIC package
-
-- Open a terminal.
-- Activate a Python3 environment if needed, e.g. on the tnesrv5 machine: `source /opt/apps/anaconda3/bin activate`
-- Check that the appropriate version of pip is activated: `pip --version`
-- Go to the package directory (where the setup.py file is located): `cd <path_to_directory>`
-- Install the package and all its dependencies: `pip install -e .`
-
-## Compile NEURON membrane mechanisms
+## Pre-compilation of NEURON membrane mechanisms
 
 In order to use the package, you will need to compile a specific set of equations describing the membrane dynamics of the different neuron types.
 
-### Windows
-
-- In the folder named `NEURON 7.x x86_64` on your Desktop, run the `mknrndll` executable.
-
+For Windows users:
+- In the folder named `NEURON 8.x x86_64` on your Desktop, run the `mknrndll` executable.
 - In the displayed window, select the directory containing the source files for the membrane mechanisms: *.../MorphoSONIC/MorphoSONIC/nmodl/*
-
 - Click on "make nrnmech.dll"
-
 - Upon completion, hit enter in the terminal to close it.
 
-### Mac OSx and Ubuntu
-
+For Mac OSx and Ubuntu users:
 - Open a terminal window and move to the directory containing the source files for the membrane mechanisms:
 
-```cd <path_to_MorphoSONIC_package/MorphoSONIC/nmodl/```
+```cd <path_to_MorphoSONIC_package>/MorphoSONIC/nmodl/```
 
 - Run the *nrnivmodl* executable:
 
