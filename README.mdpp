@@ -80,13 +80,13 @@ All package dependencies (numpy, scipy, ...) should be installed automatically.
 
 In order to use the package, you will need to compile a specific set of equations describing the membrane dynamics of the different neuron types.
 
-For Windows users:
+For **Windows users**:
 - In the folder named `NEURON 8.x x86_64` on your Desktop, run the `mknrndll` executable.
-- In the displayed window, select the directory containing the source files for the membrane mechanisms: *.../MorphoSONIC/MorphoSONIC/nmodl/*
-- Click on "make nrnmech.dll"
+- In the displayed window, select the directory containing the source files for the membrane mechanisms: `.../MorphoSONIC/MorphoSONIC/nmodl/`
+- Click on `make nrnmech.dll`
 - Upon completion, hit enter in the terminal to close it.
 
-For Mac OSx and Ubuntu users:
+For **Mac OSx and Ubuntu users**:
 - Open a terminal window
 - Move to the directory containing the source files for the membrane mechanisms, and run the `nrnivmodl` executable:
 
