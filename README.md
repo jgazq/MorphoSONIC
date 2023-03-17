@@ -1,20 +1,20 @@
 # Description
 
-`MorphoSONIC` is a Python+NEURON implementation of **spatially extended representations** of the **multi-Scale Optimized Neuronal Intramembrane Cavitation (SONIC) model [1]** to simulate the distributed electrical response of morphologically realistic neuron representations to acoustic stimuli, as predicted by the *intramembrane cavitation* hypothesis. The details of the MorphoSONIC framework and of its application to study ultrasound neuromodulation in peripheral nerve fibers are described in [2].
+`MorphoSONIC` is a Python+NEURON implementation of **spatially extended representations** of the **multi-Scale Optimized Neuronal Intramembrane Cavitation (SONIC) model [1]**. It enables the simulation of the distributed electrical response of morphologically realistic neuron representations to acoustic stimuli, as predicted by the *intramembrane cavitation* hypothesis. The details of the MorphoSONIC framework and of its application to study ultrasound neuromodulation in peripheral nerve fibers are described in [2].
 
 This package expands features from the `PySONIC` package (https://github.com/tjjlemaire/PySONIC).
 
-## Content of repository
+# Content of repository
 
 ### Single-compartment (node) models
 
-The package contains a `Node` class that provides a NEURON wrapper around the models defined in the PySONIC package. This class defines a generic section object with a specific membrane dynamics that can be simulated with both punctual electrical and acoustic drives.
+The package contains a `Node` class that provides a NEURON wrapper around the models defined in the `PySONIC` package. This class defines a generic section object with a specific membrane dynamics that can be simulated with both punctual electrical and acoustic drives.
 
 ### Multi-compartment (spatially-extended) models
 
 The package also contains several classes defining multi-compartmental model expansions, at various spatial scales.
 
-At the nanometer scale, a `RadialModel` class that simulate the behavior of a **nanoscale radially-symmetric model** with central and peripheral compartments. It can be used to model the coupling between an "ultrasound-responsive" sonophore and an "ultrasound-resistant" surrounding membrane (see `usrroundedSonophore` function. As this model is radially symmetric, some adaptation was needed in order to represent it within the *NEURON* environment (check [this link](NEURON_radial_geometry.md) for more details).
+At the nanometer scale, a `RadialModel` class that simulate the behavior of a **nanoscale radially-symmetric model** with central and peripheral compartments. It can be used to model the coupling between an "ultrasound-responsive" sonophore and an "ultrasound-resistant" surrounding membrane (see `surroundedSonophore` function. As this model is radially symmetric, some adaptation was needed in order to represent it within the *NEURON* environment (check [this link](NEURON_radial_geometry.md) for more details).
 
 At the morphological scale, several models of **unmyelinated and myelinated peripheral fibers** are implemented:
 - `SennFiber` implements a spatially-extended nonlinear node (SENN) myelinated fiber model, as defined in Reilly 1985.
@@ -30,7 +30,7 @@ Those fiber models can be simulate upon stimulation by different types of **sour
 
 ### Membrane mechanisms (NMODL)
 
-Most point-neuron models defined in the PySONIC package have been translated to equivalent membrane mechanisms in **NMODL** language. Please refer to the PySONIC package for a list of these membrane mechanisms.
+Most point-neuron models defined in the `PySONIC` package have been translated to equivalent membrane mechanisms in **NMODL** language. Please refer to the `PySONIC` package for a list of these membrane mechanisms.
 
 ### Other modules
 
@@ -53,10 +53,7 @@ Most point-neuron models defined in the PySONIC package have been translated to 
 
 If you are using a **Windows computer**, you'll first need to **install NEURON manually**:
 1. Go to the [NEURON website](https://neuron.yale.edu/neuron/download/) and download the appropriate *NEURON* installer for Windows
-2. Run the *NEURON* installer and follow the procedure:
-  - Confirm installation directory (`c:\nrn`)
-  - Check the option "Set DOS environment"
-  - Click on "Install". After completion you should see a new folder named `NEURON 8.x x86_64` on your Desktop.
+2. Start the *NEURON* installer, confirm the installation directory (`c:\nrn`), check the "Set DOS environment" option, and click on "Install". After completion you should see a new folder named `NEURON 8.x x86_64` on your Desktop.
 3. Log out and back in to make sure your environment variables are updated.
 
 For Mac OSx and Ubuntu users, NEURON will be automatically installed as a Python dependency, so you don't need to pre-install anything. 
