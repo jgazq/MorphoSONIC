@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2018-09-26 17:11:28
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-22 15:14:30
+# @Last Modified time: 2023-03-18 14:58:39
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -52,7 +52,7 @@ class SectionGroupedTimeSeries(GroupedTimeSeries):
     def render(self, *args, **kwargs):
         figs = super().render(*args, **kwargs)
         for fig in figs:
-            title = fig.canvas.get_window_title()
+            title = fig.canvas.manager.get_window_title()
             fig.canvas.manager.set_window_title(title + f'_{self.section_id}')
 
 
