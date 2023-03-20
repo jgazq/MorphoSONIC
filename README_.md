@@ -14,9 +14,9 @@ The package contains a `Node` class that provides a NEURON wrapper around the mo
 
 The package also contains several classes defining multi-compartmental model expansions, at various spatial scales.
 
-At the nanometer scale, a `RadialModel` class that simulate the behavior of a **nanoscale radially-symmetric model** with central and peripheral compartments. It can be used to model the coupling between an "ultrasound-responsive" sonophore and an "ultrasound-resistant" surrounding membrane (see `surroundedSonophore` function. As this model is radially symmetric, some adaptation was needed in order to represent it within the *NEURON* environment (check [this link](NEURON_radial_geometry.md) for more details).
+At the *nanometer scale*, a `RadialModel` class that simulate the behavior of a **nanoscale radially-symmetric model** with central and peripheral compartments. It can be used to model the coupling between an "ultrasound-responsive" sonophore and an "ultrasound-resistant" surrounding membrane (see `surroundedSonophore` function. As this model is radially symmetric, some adaptation was needed in order to represent it within the *NEURON* environment (check [this link](docs/NEURON_radial_geometry.md) for more details).
 
-At the morphological scale, several models of **unmyelinated and myelinated peripheral fibers** are implemented:
+At the *morphological scale*, several models of **unmyelinated and myelinated peripheral fibers** are implemented:
 - `SennFiber` implements a spatially-extended nonlinear node (SENN) myelinated fiber model, as defined in Reilly 1985.
 - `SweeneyFiber` implements the SENN model variant defined in Sweeney 1987.
 - `MRGFiber` implements the double-cable myelinated fiber model defined as in McIntyre 2002.
@@ -137,10 +137,6 @@ To save simulation results in binary `.pkl` files, you can use the `-s` option. 
 When running simulation batches, it is highly advised to specify the `-s` option in order to save results of each simulation. You can then visualize results at a later stage.
 
 To visualize results, use the `plot_ext_timeseries.py` script. You will be prompted to select the output files containing the simulation(s) results. By default, separate figures will be created for each simulation, showing the time profiles of all resulting variables in the default morphological section of the model. Here again, you can choose to show only a subset of variables using the `-p [xxx]` option, and specify morphological sections of interest with the `--section [xxx]` option. Moreover, if you select a subset of variables, you can visualize resulting profiles across sections in comparative figures wih the `--compare` option.
-
-## Future developments
-
-- [ ] Spatial expansion into more complex neuronal morphologies (axons, soma, dendrites)
 
 # Authors
 
