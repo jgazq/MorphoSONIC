@@ -3,25 +3,29 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-14 11:31:18
+# @Last Modified time: 2023-03-22 15:58:30
 
 import pandas as pd
 from neuron import h
 
 from PySONIC.neurons import getPointNeuron
-from PySONIC.core import Model, getModel
+from PySONIC.core import Model, getDriveArray
 from PySONIC.utils import si_prefixes, filecode, simAndSave
 from PySONIC.postpro import prependDataFrame
+from PySONIC.core.timeseries import SpatiallyExtendedTimeSeries
 
-from .pyhoc import *
-from ..models import Node, DrivenNode
-from .synapses import *
+from ..core.pyhoc import *
+from . import Node, DrivenNode
+from ..core import NeuronModel
+from ..core.synapses import *
 
 
 prefix_map = {v: k for k, v in si_prefixes.items()}
 
 
-class NodeCollection:
+class NodeCollection(NeuronModel):
+
+    ''' Collection of node models to be simulated '''
 
     simkey = 'node_collection'
     tscale = 'ms'  # relevant temporal scale of the model
@@ -29,8 +33,8 @@ class NodeCollection:
 
     node_constructor_dict = {
         'ESTIM': (Node, [], []),
-        'ASTIM': (Node, [], ['a', 'Fdrive', 'fs']),
-        'DASTIM': (DrivenNode, ['Idrive'], ['a', 'Fdrive', 'fs']),
+        'ASTIM': (Node, [], ['a', 'fs']),
+        'DASTIM': (DrivenNode, ['Idrive'], ['a', 'fs']),
     }
 
     def __init__(self, nodes):
@@ -47,18 +51,17 @@ class NodeCollection:
         self.ids = ids
         self.refnode = self.nodes[self.ids[0]]
         self.pneuron = self.refnode.pneuron
-        if self.refnode.a is not None:
-            unit, factor = 'Pa', 1e3
-        else:
-            unit, factor = 'A/m2', 1e-3
-        # unit, factor = [self.refnode.modality[k] for k in ['unit', 'factor']]
-        self.unit = f'{prefix_map[factor]}{unit}'
+        
+        # # Deduce drive type (US or EL) from input node type 
+        # if self.refnode.a is not None:
+        #     unit, factor = 'Pa', 1e3
+        # else:
+        #     unit, factor = 'A/m2', 1e-3
+        # self.unit = f'{prefix_map[factor]}{unit}'
 
     def strNodes(self):
+        ''' String representation for node list '''
         return f"[{', '.join([repr(x.pneuron) for x in self.nodes.values()])}]"
-
-    def strAmps(self, amps):
-        return f'A = [{", ".join([f"{A:.2f}" for A in amps.values()])}] {self.unit}'
 
     def __repr__(self):
         ''' Explicit naming of the model instance. '''
@@ -77,14 +80,18 @@ class NodeCollection:
         for node in self.nodes.values():
             node.clear()
 
+    def size(self):
+        return len(self.nodes)
+
     @classmethod
     def getNodesFromMeta(cls, meta):
+        node_class, node_args, node_kwargs = cls.node_constructor_dict[meta['nodekey']]
         nodes = {}
         for k, v in meta['nodes'].items():
-            node_class, node_args, node_kwargs = cls.node_constructor_dict[v['simkey']]
-            node_args = [getPointNeuron(v['neuron'])] + [v[x] for x in node_args]
+            pneuron = getPointNeuron(v['neuron'])
+            node_args = [v[x] for x in node_args]
             node_kwargs = {x: v[x] for x in node_kwargs}
-            nodes[k] = node_class(*node_args, **node_kwargs)
+            nodes[k] = node_class(pneuron, *node_args, **node_kwargs)
         return nodes
 
     @classmethod
@@ -94,51 +101,59 @@ class NodeCollection:
     def inputs(self):
         return self.refnode.pneuron.inputs()
 
-    def setStimON(self, value):
-        ''' Set stimulation ON or OFF.
-
-            :param value: new stimulation state (0 = OFF, 1 = ON)
-            :return: new stimulation state
-        '''
+    def setStimValue(self, value):
         for node in self.nodes.values():
-            node.setStimON(value)
-        return value
+            node.setStimValue(value)
 
-    def setStimAmps(self, amps):
-        ''' Set distributed stimulation amplitudes.
-
-            :param amps: model-sized dictionary of stimulus amplitudes
-        '''
+    def setDrives(self, drives):
         for id, node in self.nodes.items():
-            node.setDrive(amps[id])
-        self.amps = amps
+            node.setDrive(drives[id])
+    
+    def clearDrives(self):
+        for node in self.nodes.values():
+            node.clearDrives()
+    
+    def getDriveArray(self, drives):
+        return getDriveArray(list(drives.values()))
+
+    def createSections(self):
+        pass
+
+    def clearSections(self):
+        pass
+
+    def seclist(self):
+        pass
 
     def initToSteadyState(self):
         ''' Initialize model variables to pre-stimulus resting state values. '''
         for id, node in self.nodes.items():
-            node.section.v = node.pneuron.Qm0 * C_M2_TO_NC_CM2
+            if self.refvar == 'Qm':
+                x0 = node.pneuron.Qm0 * C_M2_TO_NC_CM2  # nC/cm2
+            else:
+                x0 = self.pneuron.Vm0  # mV
+            node.section.v = x0
         h.finitialize()
-        if self.cvode.active():
-            self.cvode.re_init()
-        else:
-            h.fcurrent()
+        self.resetIntegrator()
         h.frecord_init()
 
-    def toggleStim(self):
-        return toggleStim(self)
-
     @Model.addMeta
-    def simulate(self, amps, pp, dt=None, atol=None):
+    @Model.logDesc
+    def simulate(self, drives, pp, dt=None, atol=None):
         ''' Set appropriate recording vectors, integrate and return output variables.
 
-            :param amps: amplitude dictionary with node ids (in modality units)
+            :param drives: drive dictionary with node ids as keys
             :param pp: pulse protocol object
             :param dt: integration time step for fixed time step method (s)
             :param atol: absolute error tolerance for adaptive time step method.
             :return: output dataframe
         '''
-
-        logger.info(self.desc(self.meta(amps, pp)))
+        if len(drives) != self.size():
+            raise ValueError(f'number of drives ({len(drives)}) does not match number of nodes {self.size()}')
+        if list(drives.keys()) != self.ids:
+            raise ValueError('mismatch ')
+        
+        # logger.info(self.desc(self.meta(drives, pp)))
 
         # Set recording vectors
         t = self.refnode.setTimeProbe()
@@ -146,42 +161,29 @@ class NodeCollection:
         probes = {k: v.section.setProbes() for k, v in self.nodes.items()}
 
         # Set distributed stimulus amplitudes
-        self.setStimAmps(amps)
+        self.setDrives(drives)
 
         # Integrate model
-        integrate(self, pp, dt, atol)
+        self.integrate(pp, dt, atol)
+        self.clearDrives()
 
-        # Store output in dataframes
-        data = {}
-        for id in self.nodes.keys():
-            data[id] = pd.DataFrame({
-                't': t.to_array() / S_TO_MS,  # s
-                'stimstate': stim.to_array()
-            })
-            for k, v in probes[id].items():
-                data[id][k] = v.to_array()
-            data[id].loc[:, 'Qm'] /= C_M2_TO_NC_CM2  # C/m2
+        # Return output dataframe dictionary
+        t = t.to_array()  # s
+        stim = self.fixStimVec(stim.to_array(), dt)
+        return SpatiallyExtendedTimeSeries({
+            id: self.outputDataFrame(t, stim, probes) for id, probes in probes.items()})
 
-        # Prepend initial conditions (prior to stimulation)
-        data = {id: prependDataFrame(df) for id, df in data.items()}
-
-        return data
-
-    def modelMeta(self):
+    @property
+    def meta(self):
         return {
-            'simkey': self.simkey
-        }
-
-    def meta(self, amps, pp):
-        return {
-            **self.modelMeta(),
+            'simkey': self.simkey,
             'nodes': {k: v.meta for k, v in self.nodes.items()},
-            'amps': amps,
-            'pp': pp
+            'nodekey': self.refnode.simkey
         }
 
     def desc(self, meta):
-        return f'{self}: simulation @ {self.strAmps(meta["amps"])}, {meta["pp"].desc}'
+        darray = self.getDriveArray(meta['drives'])
+        return f'{self}: simulation @ {darray.desc}, {meta["pp"].desc}'
 
     def modelCodes(self):
         return {
@@ -189,16 +191,13 @@ class NodeCollection:
             'neurons': '_'.join([x.pneuron.name for x in self.nodes.values()])
         }
 
-    def filecodes(self, amps, pp):
+    def filecodes(self, drives, pp, *_):
         return {
             **self.modelCodes(),
-            'amps': f'[{"_".join([f"{x:.1f}" for x in amps.values()])}]{self.unit.replace("/", "")}',
-            'nature': 'CW' if pp.isCW() else 'PW',
+            **self.getDriveArray(drives).filecodes,
+            'nature': 'CW' if pp.isCW else 'PW',
             **pp.filecodes
         }
-
-    def filecode(self, *args):
-        return filecode(self, *args)
 
     def getPltVars(self, *args, **kwargs):
         ref_pltvars = self.refnode.pneuron.getPltVars(*args, **kwargs)
@@ -251,6 +250,15 @@ class NodeNetwork(NodeCollection):
         for presyn_node_id, targets in self.connections.items():
             for postsyn_node_id, (syn_weight, syn_model) in targets.items():
                 self.connect(presyn_node_id, postsyn_node_id, syn_model, syn_weight)
+    
+    @property
+    def meta(self):
+        return {
+            **super().meta,
+            'simkey': self.simkey,
+            'connections': self.connections,
+            'presyn_var': self.presyn_var
+        }
 
     @classmethod
     def initFromMeta(cls, meta):
@@ -289,8 +297,3 @@ class NodeNetwork(NodeCollection):
         self.syn_objs.append(syn)
         self.netcon_objs.append(nc)
 
-    def modelMeta(self):
-        return {**super().modelMeta(), **{
-            'connections': self.connections,
-            'presyn_var': self.presyn_var
-        }}

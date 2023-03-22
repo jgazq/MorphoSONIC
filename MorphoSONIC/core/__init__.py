@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-06-04 18:26:42
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-21 22:50:01
+# @Last Modified time: 2023-03-22 13:51:59
 
 from .pyhoc import *
 from .pymodl import *
@@ -12,4 +12,3 @@ from .nmodel import *
 from .fiber import *
 from .sonic import *
 from .synapses import *
-from .network import *

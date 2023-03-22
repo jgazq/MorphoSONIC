@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-06-04 18:26:42
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-23 17:39:38
+# @Last Modified time: 2023-03-22 13:52:16
 
 import sys
 import inspect
@@ -12,6 +12,7 @@ from .node import *
 from .radial_model import *
 from .single_cable import *
 from .double_cable import *
+from .network import *
 
 
 def getModelsDict():

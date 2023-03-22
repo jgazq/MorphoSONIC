@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2018-09-26 17:11:28
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-18 15:02:43
+# @Last Modified time: 2023-03-22 16:00:41
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,11 +11,12 @@ from matplotlib.ticker import FormatStrFormatter
 from scipy import signal
 
 from PySONIC.core import Lookup
+from PySONIC.postpro import prependDataFrame
 from PySONIC.plt import GroupedTimeSeries, CompTimeSeries, mirrorAxis, setNormalizer
 from PySONIC.utils import logger, si_format, getPow10, rsquared, padleft, timeThreshold, bounds, loadData
 
 from .core import *
-from .models import getModel, surroundedSonophore, mrg_lkp
+from .models import Node, getModel, surroundedSonophore, mrg_lkp
 from .utils import chronaxie
 from .constants import *
 

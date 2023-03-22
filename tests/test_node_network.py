@@ -3,19 +3,19 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 19:51:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-22 10:13:09
+# @Last Modified time: 2023-03-22 16:01:10
 
 import logging
 
-from PySONIC.core import PulsedProtocol
+from PySONIC.core import PulsedProtocol, ElectricDrive, AcousticDrive
 from PySONIC.neurons import getPointNeuron
 from PySONIC.test import TestBase
 from PySONIC.utils import logger
 
-from MorphoSONIC.plt import SectionCompTimeSeries, SectionGroupedTimeSeries
+from MorphoSONIC.plt import SectionCompTimeSeries
 from MorphoSONIC.models import Node, DrivenNode
 from MorphoSONIC.core.synapses import Exp2Synapse, FExp2Synapse, FDExp2Synapse
-from MorphoSONIC.core.network import NodeCollection, NodeNetwork
+from MorphoSONIC.models.network import NodeCollection, NodeNetwork
 from MorphoSONIC.parsers import TestNodeNetworkParser
 
 ''' Create and simulate a small network of nodes. '''
@@ -86,10 +86,11 @@ class TestNodeNetwork(TestBase):
         self.fs = 1.0
 
         # US stimulation parameters
-        self.Fdrive = 500e3  # Hz
-        self.Adrive = 30e3  # Pa
+        Fdrive = 500e3  # Hz
+        Adrive = 30e3  # Pa
+        self.US_drive = AcousticDrive(Fdrive, Adrive)
 
-    def simulate(self, nodes, amps, connect):
+    def simulate(self, nodes, drives, connect):
         # Create appropriate system
         if connect:
             system = NodeNetwork(nodes, self.connections)
@@ -97,28 +98,29 @@ class TestNodeNetwork(TestBase):
             system = NodeCollection(nodes)
 
         # Simulate system
-        data, meta = system.simulate(amps, self.pp)
+        data, meta = system.simulate(drives, self.pp)
 
-        # Plot membrane potential traces and comparative firing rate profiles
-        for id in system.ids:
-            SectionGroupedTimeSeries(id, [(data, meta)], pltscheme={'Q_m': ['Qm']}).render()
-        # SectionCompTimeSeries([(data, meta)], 'FR', system.ids).render()
+        # Plot comparative membrane potential and firing rate profiles
+        for pltkey in ['Qm', 'FR']:
+            SectionCompTimeSeries([(data, meta)], pltkey, system.ids).render(cmap=None)
 
-    def test_nostim(self, connect):
+    def test_el(self, connect):
+        ''' Electrical stimulation only '''
         nodes = {k: Node(v) for k, v in self.pneurons.items()}
-        amps = self.idrives
-        self.simulate(nodes, amps, connect)
+        EL_drives = {k: ElectricDrive(v) for k, v in self.idrives.items()}
+        self.simulate(nodes, EL_drives, connect)
 
-    def test_nodrive(self, connect):
+    def test_us(self, connect):
+        ''' US stimulation only '''
         nodes = {k: Node(v, a=self.a, fs=self.fs) for k, v in self.pneurons.items()}
-        amps = {k: self.Adrive for k in self.pneurons.keys()}
-        self.simulate(nodes, amps, connect)
+        US_drives = {k: self.US_drive for k in self.pneurons.keys()}
+        self.simulate(nodes, US_drives, connect)
 
-    def test_full(self, connect):
-        nodes = {k: DrivenNode(v, self.idrives[k], Fdrive=self.Fdrive)
-                 for k, v in self.pneurons.items()}
-        amps = {k: self.Adrive for k in self.pneurons.keys()}
-        self.simulate(nodes, amps, connect)
+    def test_combined(self, connect):
+        ''' US stimulation with current drive '''
+        nodes = {k: DrivenNode(v, self.idrives[k], a=self.a, fs=self.fs) for k, v in self.pneurons.items()}
+        US_drives = {k: self.US_drive for k in self.pneurons.keys()}
+        self.simulate(nodes, US_drives, connect)
 
 
 if __name__ == '__main__':
