@@ -3,24 +3,19 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-22 15:58:30
+# @Last Modified time: 2023-03-22 17:11:58
 
-import pandas as pd
 from neuron import h
 
 from PySONIC.neurons import getPointNeuron
 from PySONIC.core import Model, getDriveArray
-from PySONIC.utils import si_prefixes, filecode, simAndSave
-from PySONIC.postpro import prependDataFrame
+from PySONIC.utils import simAndSave
 from PySONIC.core.timeseries import SpatiallyExtendedTimeSeries
 
 from ..core.pyhoc import *
 from . import Node, DrivenNode
 from ..core import NeuronModel
 from ..core.synapses import *
-
-
-prefix_map = {v: k for k, v in si_prefixes.items()}
 
 
 class NodeCollection(NeuronModel):
@@ -51,13 +46,6 @@ class NodeCollection(NeuronModel):
         self.ids = ids
         self.refnode = self.nodes[self.ids[0]]
         self.pneuron = self.refnode.pneuron
-        
-        # # Deduce drive type (US or EL) from input node type 
-        # if self.refnode.a is not None:
-        #     unit, factor = 'Pa', 1e3
-        # else:
-        #     unit, factor = 'A/m2', 1e-3
-        # self.unit = f'{prefix_map[factor]}{unit}'
 
     def strNodes(self):
         ''' String representation for node list '''

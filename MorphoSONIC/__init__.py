@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-06-04 18:26:42
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-21 22:51:08
+# @Last Modified time: 2023-03-22 17:39:08
 
 from .core import *
 from .models import *
@@ -15,3 +15,4 @@ from .utils import *
 from .parsers import *
 from .test import *
 from .batches import *
+from .net_params import *
