@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 19:51:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-07-27 17:47:02
+# @Last Modified time: 2023-03-22 10:13:09
 
 import logging
 
@@ -13,7 +13,7 @@ from PySONIC.test import TestBase
 from PySONIC.utils import logger
 
 from MorphoSONIC.plt import SectionCompTimeSeries, SectionGroupedTimeSeries
-from MorphoSONIC.core.node import Node, DrivenNode
+from MorphoSONIC.models import Node, DrivenNode
 from MorphoSONIC.core.synapses import Exp2Synapse, FExp2Synapse, FDExp2Synapse
 from MorphoSONIC.core.network import NodeCollection, NodeNetwork
 from MorphoSONIC.parsers import TestNodeNetworkParser

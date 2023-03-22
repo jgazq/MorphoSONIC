@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2018-08-27 09:23:32
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-18 17:57:04
+# @Last Modified time: 2023-03-22 10:20:40
 
 from PySONIC.core import PointNeuron, ElectricDrive
 from PySONIC.utils import logger
@@ -119,12 +119,19 @@ class Node(NeuronModel):
         return codes
 
 
-class DrivenNode(Node):
+@addSonicFeatures
+class DrivenNode(Node.__original__):
+    ''' Node model with constant driving current  '''
 
     def __init__(self, pneuron, Idrive, *args, **kwargs):
+        ''' Initialization.
+
+            :param pneuron: point-neuron model
+            :param Idrive: intracellular driving current (mA/m2)
+        '''
         self.Idrive = Idrive
         super().__init__(pneuron, *args, **kwargs)
-        logger.debug(f'setting {self.Idrive:.2f} mA/m2 driving current')
+        logger.info(f'setting {self.Idrive:.2f} mA/m2 driving current')
         self.iclamp = IClamp(self.section, self.currentDensityToCurrent(self.Idrive))
         self.iclamp.set(1)
 
