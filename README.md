@@ -56,7 +56,7 @@ If you are using a **Windows computer**, you'll first need to **install NEURON m
 2. Start the *NEURON* installer, confirm the installation directory (`c:\nrn`), check the "Set DOS environment" option, and click on "Install". After completion you should see a new folder named `NEURON 8.x x86_64` on your Desktop.
 3. Log out and back in to make sure your environment variables are updated.
 
-For Mac OSx and Ubuntu users, NEURON will be automatically installed as a Python dependency, so you don't need to pre-install anything. 
+For Mac OSx / Linux users, NEURON will be automatically installed as a Python dependency, so you don't need to pre-install anything. 
 
 ### MorphoSONIC package
 
@@ -83,7 +83,7 @@ For **Windows users**:
 - Click on `make nrnmech.dll`
 - Upon completion, hit enter in the terminal to close it.
 
-For **Mac OSx and Ubuntu users**:
+For **Mac OSx / Linux users**:
 - Open a terminal window
 - Move to the directory containing the source files for the membrane mechanisms, and run the `nrnivmodl` executable:
 
