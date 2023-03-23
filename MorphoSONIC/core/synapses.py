@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-14 15:49:25
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-23 11:07:03
+# @Last Modified time: 2023-03-23 13:42:14
 
 import abc
 from neuron import h
@@ -32,6 +32,15 @@ class Synapse(metaclass=abc.ABCMeta):
         self.Vthr = Vthr
         self.delay = delay
     
+    def strParams(self):
+        return [
+            f'Vthr={self.Vthr:.2f}mV',
+            f'delay={self.delay:.1f}ms'
+        ]
+    
+    def __repr__(self):
+        return f'{self.__class__.__name__}({", ".join(self.strParams())})'
+    
     def attach(self, node):
         ''' Attach synapse model to a specific target node.
 
@@ -58,6 +67,13 @@ class Exp2Synapse(Synapse):
         self.tau2 = tau2
         self.E = E
         super().__init__(**kwargs)
+    
+    def strParams(self):
+        return super().strParams() + [
+            f'tau1={self.tau1:.1f}ms',
+            f'tau2={self.tau2:.1f}ms',
+            f'E={self.E:.2f}mV)'
+        ]
 
     def attach(self, node):
         syn = super().attach(node)
@@ -81,6 +97,12 @@ class FExp2Synapse(Exp2Synapse):
         self.f = f
         self.tauF = tauF
         super().__init__(**kwargs)
+    
+    def strParams(self):
+        return super().strParams() + [
+            f'f={self.f:.2f}',
+            f'tauF={self.tauF:.1f}ms'
+        ]
 
     def attach(self, node):
         syn = super().attach(node)
@@ -109,6 +131,14 @@ class FDExp2Synapse(FExp2Synapse):
         self.d2 = d2
         self.tauD2 = tauD2
         super().__init__(**kwargs)
+    
+    def strParams(self):
+        return super().strParams() + [
+            f'd1={self.d1:.2f}',
+            f'tauD1={self.tauD1:.1f}ms',
+            f'd2={self.d2:.2f}',
+            f'tauD2={self.tauD2:.1f}ms',
+        ]
 
     def attach(self, node):
         syn = super().attach(node)

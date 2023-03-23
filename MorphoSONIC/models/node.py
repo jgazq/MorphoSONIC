@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2018-08-27 09:23:32
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-23 10:56:08
+# @Last Modified time: 2023-03-23 16:16:58
 
 from PySONIC.core import PointNeuron, ElectricDrive
 from PySONIC.utils import logger
@@ -129,11 +129,45 @@ class DrivenNode(Node.__original__):
             :param pneuron: point-neuron model
             :param Idrive: intracellular driving current (mA/m2)
         '''
-        self.Idrive = Idrive
         super().__init__(pneuron, *args, **kwargs)
-        logger.info(f'setting {self.Idrive:.2f} mA/m2 driving current')
-        self.iclamp = IClamp(self.section, self.currentDensityToCurrent(self.Idrive))
+        self.Idrive = Idrive
+    
+    @property
+    def Idrive(self):
+        ''' Idrive getter '''
+        try:
+            return self._Idrive
+        except AttributeError:
+            return 0.
+    
+    @Idrive.setter
+    def Idrive(self, value):
+        ''' Idrive setter '''
+        if value != 0.:
+            logger.info(f'setting {value:.2f} mA/m2 current drive')
+        # Convert current density (in mA/m2) to injected current (in nA)
+        Iinj = self.currentDensityToCurrent(value)
+        # Create and activate IClamp object if it does not exist already
+        if not hasattr(self, 'iclamp') or self.iclamp is None:
+            self.iclamp = IClamp(self.section, Iinj)
+            self.iclamp.set(1)
+        # Otherwise, update amplitude
+        else:
+            self.iclamp.amp = Iinj
+    
+    def enableDrive(self):
         self.iclamp.set(1)
+    
+    def disableDrive(self):
+        self.iclamp.set(0)
+
+    def clear(self):
+        self.iclamp = None
+        super().clear()
+    
+    def construct(self):
+        super().construct()
+        self.Idrive = self.Idrive
 
     def __repr__(self):
         return super().__repr__()[:-1] + f', Idrive = {self.Idrive:.2f} mA/m2)'

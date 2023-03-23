@@ -3,18 +3,17 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 19:51:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-23 11:09:03
+# @Last Modified time: 2023-03-23 16:47:56
 
 import logging
 
-from PySONIC.core import PulsedProtocol, ElectricDrive, AcousticDrive
+from PySONIC.core import PulsedProtocol, AcousticDrive
 from PySONIC.neurons import getPointNeuron
 from PySONIC.test import TestBase
 from PySONIC.utils import logger
 
 from MorphoSONIC.plt import SectionCompTimeSeries
-from MorphoSONIC.models import Node, DrivenNode, Collection, Network
-from MorphoSONIC.net_params import cortical_connections, thalamic_drives
+from MorphoSONIC.models import Node, DrivenNode, Collection, Network, CorticalNetwork
 from MorphoSONIC.parsers import TestNetworkParser
 
 ''' Create and simulate a small network of nodes. '''
@@ -36,13 +35,57 @@ class TestNetwork(TestBase):
 
         # Point-neuron models
         self.pneurons = {k: getPointNeuron(k) for k in ['RS', 'FS', 'LTS']}
-        
-        # Synaptic connections
-        self.connections = cortical_connections
+
+        # Sonophore parameters
+        self.a = 32e-9
+        self.fs = 1.0
+
+        # Synaptic weights (in uS) normalized as in Plaksin 2016)
+        syn_weights = {
+            'RS': {
+                'RS': 0.002,
+                'FS': 0.04,
+                'LTS': 0.09,
+            },
+            'FS': {
+                'RS': 0.015,
+                'FS': 0.135,
+                'LTS': 0.86,
+            },
+            'LTS': {
+                'RS': 0.135,
+                'FS': 0.02,
+            }
+        }
+
+        # Thalamic drive to cortical cells (as in Plaksin 2016)
+        I_Th_RS = 0.17  # nA
+        thalamic_drives = {
+            'RS': I_Th_RS,
+            'FS': 1.4 * I_Th_RS,
+            'LTS': 0.0
+        }
+
+        # Generate synaptic connections using synaptic models from
+        # (Vierling-Classen et al. 2010) model
+        self.connections = []
+        for presyn, targets in syn_weights.items():
+            for postsyn, w in targets.items():
+                self.connections.append((
+                    presyn, 
+                    postsyn,
+                    w,
+                    CorticalNetwork.syn_models[presyn][postsyn]
+                ))
 
         # Driving currents
-        self.idrives = {k: (v * 1e-6) / self.pneurons[k].area for k, v in thalamic_drives.items()}  # mA/m2
+        self.idrives = {k: (v * 1e-6) / self.pneurons[k].area
+                        for k, v in thalamic_drives.items()}  # mA/m2
 
+        # Corresponding Node models, with appropriate driving currents
+        self.nodes = {k: DrivenNode(v, self.idrives[k], a=self.a, fs=self.fs)
+                      for k, v in self.pneurons.items()}
+    
         # Pulsing parameters
         tstart = 1.  # s
         tstim = 1.    # s
@@ -51,10 +94,6 @@ class TestNetwork(TestBase):
         DC = .2       # (-)
         self.pp = PulsedProtocol(tstim, toffset, PRF, DC, tstart=tstart)
 
-        # Sonophore parameters
-        self.a = 32e-9
-        self.fs = 1.0
-
         # US stimulation parameters
         Fdrive = 500e3  # Hz
         Adrive = 100e3  # Pa
@@ -62,34 +101,36 @@ class TestNetwork(TestBase):
 
     def simulate(self, nodes, drives, connect):
         # Create appropriate system
-        if connect:
-            system = Network(nodes, self.connections)
-        else:
-            system = Collection(nodes)
+        system = Network(nodes, self.connections) if connect else Collection(nodes)
 
         # Simulate system
         data, meta = system.simulate(drives, self.pp)
 
+        # Clear any existing conections
+        if isinstance(system, Network):
+            system.clear_connections()
+
         # Plot comparative membrane charge density profiles
         SectionCompTimeSeries([(data, meta)], 'Qm', system.ids).render(cmap=None)
 
-    def test_el(self, connect):
-        ''' Electrical stimulation only '''
-        nodes = {k: Node(v) for k, v in self.pneurons.items()}
-        EL_drives = {k: ElectricDrive(v) for k, v in self.idrives.items()}
-        self.simulate(nodes, EL_drives, connect)
+    def test_drive(self, connect):
+        ''' Thalamic drive only '''
+        logger.warning('drive only')
+        self.simulate(self.nodes, self.US_drive.updatedX(0.), connect)
 
     def test_us(self, connect):
         ''' US stimulation only '''
-        nodes = {k: Node(v, a=self.a, fs=self.fs) for k, v in self.pneurons.items()}
-        US_drives = {k: self.US_drive for k in self.pneurons.keys()}
-        self.simulate(nodes, US_drives, connect)
+        logger.warning('US only')
+        for k in self.nodes.keys():
+            self.nodes[k].disableDrive()
+        self.simulate(self.nodes, self.US_drive, connect)
+        for k in self.nodes.keys():
+            self.nodes[k].enableDrive()
 
     def test_combined(self, connect):
-        ''' US stimulation with current drive '''
-        nodes = {k: DrivenNode(v, self.idrives[k], a=self.a, fs=self.fs) for k, v in self.pneurons.items()}
-        US_drives = {k: self.US_drive for k in self.pneurons.keys()}
-        self.simulate(nodes, US_drives, connect)
+        ''' US stimulation with thalamic drive '''
+        logger.warning('drive+US')
+        self.simulate(self.nodes, self.US_drive, connect)
 
 
 if __name__ == '__main__':
