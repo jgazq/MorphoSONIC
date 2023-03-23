@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2018-08-27 09:23:32
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-22 10:20:40
+# @Last Modified time: 2023-03-23 10:56:08
 
 from PySONIC.core import PointNeuron, ElectricDrive
 from PySONIC.utils import logger
@@ -52,7 +52,7 @@ class Node(NeuronModel):
     def getAreaNormalizationFactor(self):
         ''' Return area normalization factor '''
         A0 = self.section.Am / M_TO_CM**2  # section area (m2)
-        A = self.pneuron.area                          # neuron membrane area (m2)
+        A = self.pneuron.area              # neuron membrane area (m2)
         return A0 / A
 
     @staticmethod

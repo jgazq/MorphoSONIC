@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-14 15:49:25
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2020-03-06 09:13:57
+# @Last Modified time: 2023-03-23 11:07:03
 
 import abc
 from neuron import h
@@ -31,7 +31,7 @@ class Synapse(metaclass=abc.ABCMeta):
         '''
         self.Vthr = Vthr
         self.delay = delay
-
+    
     def attach(self, node):
         ''' Attach synapse model to a specific target node.
 

@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 19:51:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-22 21:04:21
+# @Last Modified time: 2023-03-23 11:09:03
 
 import logging
 
@@ -70,9 +70,8 @@ class TestNetwork(TestBase):
         # Simulate system
         data, meta = system.simulate(drives, self.pp)
 
-        # Plot comparative membrane potential and firing rate profiles
-        for pltkey in ['Qm', 'FR']:
-            SectionCompTimeSeries([(data, meta)], pltkey, system.ids).render(cmap=None)
+        # Plot comparative membrane charge density profiles
+        SectionCompTimeSeries([(data, meta)], 'Qm', system.ids).render(cmap=None)
 
     def test_el(self, connect):
         ''' Electrical stimulation only '''

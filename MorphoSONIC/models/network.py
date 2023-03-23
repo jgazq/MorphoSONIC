@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-22 20:40:07
+# @Last Modified time: 2023-03-23 11:11:08
 
 from neuron import h
 
@@ -252,7 +252,7 @@ class Network(Collection):
     def initFromMeta(cls, meta):
         return cls(cls.getNodesFromMeta(meta), meta['connections'], meta['presyn_var'])
 
-    def connect(self, source_id, target_id, syn_model, syn_weight, delay=0.0):
+    def connect(self, source_id, target_id, syn_model, syn_weight, delay=None):
         ''' Connect a source node to a target node with a specific synapse model
             and synaptic weight.
 
@@ -260,28 +260,36 @@ class Network(Collection):
             :param target_id: ID of the post-synaptic node
             :param syn_model: synapse model
             :param weight: synaptic weight (uS)
-            :param delay: synaptic delay (ms)
+            :param delay (optional): synaptic delay (ms)
         '''
+        # Assert vaildity of source and target IDs
         for id in [source_id, target_id]:
             assert id in self.ids, f'invalid node ID: "{id}"'
+        # Create synapse instance from model, and attach it to target node
         syn = syn_model.attach(self.nodes[target_id])
+        # Determine relevant hoc variable for pre-synaptic trigger
         if self.presyn_var == 'Vm':
             hoc_var = f'Vm_{self.nodes[source_id].mechname}'
         else:
             hoc_var = 'v'
+        # Generate network-connection between pre and post synaptic nodes
         nc = h.NetCon(
-            getattr(self.nodes[source_id].section(0.5), f'_ref_{hoc_var}'),
-            syn,
-            sec=self.nodes[source_id].section)
+            getattr(self.nodes[source_id].section(0.5), f'_ref_{hoc_var}'),  # trigger variable 
+            syn,  # synapse object (already attached to post-synaptic node)
+            sec=self.nodes[source_id].section  # pre-synaptic node
+        )
 
-        # Normalize synaptic weight
+        # Normalize synaptic weight according to ratio of assigned vs. theoretical membrane area 
         syn_weight *= self.nodes[target_id].getAreaNormalizationFactor()
 
         # Assign netcon attributes
         nc.threshold = syn_model.Vthr  # pre-synaptic voltage threshold (mV)
-        nc.delay = syn_model.delay     # synaptic delay (ms)
-        nc.weight[0] = syn_weight          # synaptic weight (uS)
+        if delay is None:
+            nc.delay = syn_model.delay  # synaptic delay (ms)
+        else:
+            nc.delay = delay
+        nc.weight[0] = syn_weight      # synaptic weight (uS)
 
+        # Append synapse and netcon objects to network class atributes 
         self.syn_objs.append(syn)
         self.netcon_objs.append(nc)
-
