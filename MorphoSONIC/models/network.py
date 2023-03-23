@@ -3,18 +3,19 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-23 17:18:31
+# @Last Modified time: 2023-03-23 17:42:04
 
 from itertools import product
 import random
 import numpy as np
 import pandas as pd
 from neuron import h
+from tqdm import tqdm
 
 from PySONIC.neurons import getPointNeuron
-from PySONIC.core import Model, Drive, getDriveArray
+from PySONIC.core import Model, Drive, getDriveArray, SpatiallyExtendedTimeSeries
 from PySONIC.utils import simAndSave
-from PySONIC.core.timeseries import SpatiallyExtendedTimeSeries
+from PySONIC.postpro import detectSpikes
 
 from ..core.pyhoc import *
 from . import Node, DrivenNode
@@ -220,6 +221,14 @@ class Collection(NeuronModel):
 
     def simAndSave(self, *args, **kwargs):
         return simAndSave(self, *args, **kwargs)
+
+    def detectSpikes(self, data):
+        tspikes = {}
+        logger.info(f'detecting spikes on {data.size} nodes:')
+        for node_id, node_data in tqdm(data.items()):
+            ispikes, *_ = detectSpikes(node_data)
+            tspikes[node_id] = node_data.time[ispikes.astype(int)]
+        return tspikes
 
 
 class Network(Collection):
@@ -455,7 +464,6 @@ class SmartNetwork(Network):
     @classmethod
     def initFromMeta(cls, meta):
         return Network(cls.getNodesFromMeta(meta), meta['connections'], meta['presyn_var'])
-
     
 
 class CorticalNetwork(SmartNetwork):
