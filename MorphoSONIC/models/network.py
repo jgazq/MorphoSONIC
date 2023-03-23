@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-22 17:11:58
+# @Last Modified time: 2023-03-22 20:40:07
 
 from neuron import h
 
@@ -18,7 +18,7 @@ from ..core import NeuronModel
 from ..core.synapses import *
 
 
-class NodeCollection(NeuronModel):
+class Collection(NeuronModel):
 
     ''' Collection of node models to be simulated '''
 
@@ -207,7 +207,7 @@ class NodeCollection(NeuronModel):
         return simAndSave(self, *args, **kwargs)
 
 
-class NodeNetwork(NodeCollection):
+class Network(Collection):
 
     simkey = 'node_network'
 

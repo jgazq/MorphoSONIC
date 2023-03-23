@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-08-18 21:14:43
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-14 11:33:09
+# @Last Modified time: 2023-03-22 20:42:52
 
 import matplotlib.pyplot as plt
 from PySONIC.parsers import *
@@ -228,7 +228,7 @@ class SpatiallyExtendedTimeSeriesParser(TimeSeriesParser):
         SpatiallyExtendedParser.addSection(self)
 
 
-class TestNodeNetworkParser(TestParser):
+class TestNetworkParser(TestParser):
 
     def __init__(self, valid_subsets):
         super().__init__(valid_subsets)
