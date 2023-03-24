@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-24 18:13:17
+# @Last Modified time: 2023-03-24 18:25:05
 
 from itertools import product
 import random
@@ -278,7 +278,7 @@ class NodePopulation(NeuronModel):
             tspikes[node_id] = node_data.time[ispikes.astype(int)]
         return tspikes
     
-    def plotSpikesRaster(self, tspikes, protocol, ymargin=0.2, stim_mark='auto', nodelabel='auto'):
+    def plot_spikes_raster(self, tspikes, protocol, ymargin=0.2, stim_mark='auto', nodelabel='auto'):
         '''
         Plot spikes raster for each node, color-coded by cell type
         
@@ -311,7 +311,8 @@ class NodePopulation(NeuronModel):
             ax.set_yticks(np.arange(self.size()))
             ax.set_yticklabels(self.ids)
         else:
-            ax.set_yticks([])
+            ax.set_yticks([0, self.size() - 1])
+            ax.set_yticklabels([1, self.size()])
         ax.set_xlim(0, protocol.tstop)
         ax.set_ylim(-0.5, self.size() - 0.5)
 

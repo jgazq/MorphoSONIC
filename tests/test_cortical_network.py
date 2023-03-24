@@ -2,11 +2,12 @@
 # @Author: Theo Lemaire
 # @Date:   2023-03-23 11:53:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-24 18:18:40
+# @Last Modified time: 2023-03-24 18:24:07
 
 import logging
 import time
 import matplotlib.pyplot as plt
+from argparse import ArgumentParser
 
 from PySONIC.core import PulsedProtocol, AcousticDrive
 from PySONIC.utils import logger
@@ -18,12 +19,16 @@ from MorphoSONIC.plt import SectionCompTimeSeries
 
 logger.setLevel(logging.INFO)
 
+parser = ArgumentParser()
+parser.add_argument('-n', '--nnodes', type=int, default=48, help='network size')
+args = parser.parse_args()
+
 # Sonophore parameters
 a = 32e-9
 fs = 1.0
 
 # Create cortical network
-network = CorticalNodeNetwork(ntot=100, a=a, fs=fs)
+network = CorticalNodeNetwork(ntot=args.nnodes, a=a, fs=fs)
 
 # Plot network connectivity matrix
 fig = network.plot_connectivity_matrix(hue='presyn-celltype')
@@ -51,7 +56,7 @@ logger.info(f'simulation completed in {tcomp:.2f} seconds')
 # SectionCompTimeSeries([(data, meta)], 'Qm', network.ids).render(cmap=None)
 
 # Plot spikes raster
-fig = network.plotSpikesRaster(tspikes, pp)
+fig = network.plot_spikes_raster(tspikes, pp)
 
 # Render figures
 plt.show()

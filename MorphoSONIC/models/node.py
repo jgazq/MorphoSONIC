@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2018-08-27 09:23:32
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-24 16:38:03
+# @Last Modified time: 2023-03-24 18:19:40
 
 import numpy as np
 from neuron import h
@@ -166,8 +166,6 @@ class DrivenNode(Node.__original__):
     @Idrive.setter
     def Idrive(self, value):
         ''' Idrive setter '''
-        # if value != 0.:
-        #     logger.info(f'setting {value:.2f} mA/m2 current drive')
         # Convert current density (in mA/m2) to injected current (in nA)
         Iinj = self.currentDensityToCurrent(value)
         # Create and activate IClamp object if it does not exist already
