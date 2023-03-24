@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-14 15:49:25
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-23 13:42:14
+# @Last Modified time: 2023-03-24 15:49:31
 
 import abc
 from neuron import h
@@ -67,6 +67,11 @@ class Exp2Synapse(Synapse):
         self.tau2 = tau2
         self.E = E
         super().__init__(**kwargs)
+    
+    @property
+    def syntype(self):
+        ''' Return synapse type (-1 for inhibitory, +1 for excitatory) '''
+        return 2 * (self.E > -10.) - 1
     
     def strParams(self):
         return super().strParams() + [

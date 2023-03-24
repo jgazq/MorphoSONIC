@@ -3,7 +3,10 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2018-08-27 09:23:32
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-23 16:16:58
+# @Last Modified time: 2023-03-24 16:38:03
+
+import numpy as np
+from neuron import h
 
 from PySONIC.core import PointNeuron, ElectricDrive
 from PySONIC.utils import logger
@@ -118,6 +121,26 @@ class Node(NeuronModel):
         codes['method'] = 'NEURON'
         return codes
 
+    def setSpikeDetector(self, thr=0.):
+        '''
+        Set up a spike detector
+        
+        :param thr: threshold voltage in the positive direction for spike detection
+        '''
+        self.apc = h.APCount(self.section(0.5))
+        self.apc.thresh = thr
+        self.aptimes = h.Vector()
+        self.apc.record(self.aptimes)
+    
+    def clearSpikedetector(self):
+        ''' Clear spike detector '''
+        self.apc = None
+        self.aptimes = None
+    
+    def getSpikeTimes(self):
+        ''' Extract detect spike times (in s) as a numpy array '''
+        return np.array(self.aptimes.to_python()) * 1e-3
+
 
 @addSonicFeatures
 class DrivenNode(Node.__original__):
@@ -143,8 +166,8 @@ class DrivenNode(Node.__original__):
     @Idrive.setter
     def Idrive(self, value):
         ''' Idrive setter '''
-        if value != 0.:
-            logger.info(f'setting {value:.2f} mA/m2 current drive')
+        # if value != 0.:
+        #     logger.info(f'setting {value:.2f} mA/m2 current drive')
         # Convert current density (in mA/m2) to injected current (in nA)
         Iinj = self.currentDensityToCurrent(value)
         # Create and activate IClamp object if it does not exist already
