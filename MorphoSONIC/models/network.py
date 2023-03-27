@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-24 18:25:05
+# @Last Modified time: 2023-03-27 15:22:08
 
 from itertools import product
 import random
@@ -152,7 +152,7 @@ class NodePopulation(NeuronModel):
         '''
         ctypes = map(self.parse_cell_type, self.ids)
         if unique:
-            ctypes = set(ctypes)
+            ctypes = dict.fromkeys(ctypes)
         return list(ctypes)
 
     def initToSteadyState(self):
@@ -312,7 +312,7 @@ class NodePopulation(NeuronModel):
             ax.set_yticklabels(self.ids)
         else:
             ax.set_yticks([0, self.size() - 1])
-            ax.set_yticklabels([1, self.size()])
+            ax.set_yticklabels([self.size(), 1])
         ax.set_xlim(0, protocol.tstop)
         ax.set_ylim(-0.5, self.size() - 0.5)
 
@@ -352,7 +352,8 @@ class NodePopulation(NeuronModel):
                 # Extract color and plot raster on appropriate line
                 cell_type = self.parse_cell_type(node_id)
                 yspan = (1 - ymargin) / 2
-                ax.vlines(node_spikes, i - yspan, i + yspan, colors=cmap[cell_type])
+                yref = self.size() - i
+                ax.vlines(node_spikes, yref - yspan, yref + yspan, colors=cmap[cell_type])
         
         # Add cell type legend if needed
         if nodelabel == 'type':
@@ -508,9 +509,11 @@ class NodeNetwork(NodePopulation):
         keys = ['pre-syn', 'post-syn']
         candidate_pairs = list(product(self.ids, self.ids))
         candidate_pairs = (
-            pd.DataFrame(data=candidate_pairs, columns=keys).set_index(keys)
+            pd.DataFrame(data=candidate_pairs, columns=keys)
+            .set_index(keys)
             .assign(x=0)['x']
             .unstack()
+            .reindex(self.ids).reindex(self.ids, axis='columns')
         )
         
         # Construct discrete mapping onto category, if required 
