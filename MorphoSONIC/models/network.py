@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-27 15:22:08
+# @Last Modified time: 2023-03-27 18:52:44
 
 from itertools import product
 import random
@@ -309,7 +309,7 @@ class NodePopulation(NeuronModel):
         ax.set_ylabel('node')
         if nodelabel == 'all':
             ax.set_yticks(np.arange(self.size()))
-            ax.set_yticklabels(self.ids)
+            ax.set_yticklabels(self.ids[::-1])
         else:
             ax.set_yticks([0, self.size() - 1])
             ax.set_yticklabels([self.size(), 1])
@@ -344,7 +344,7 @@ class NodePopulation(NeuronModel):
         ctypes = self.parse_cell_types(unique=True)
         cmap = dict(zip(ctypes, plt.get_cmap('tab10').colors))
 
-        # For each node in spikes dictionary 
+        # For each node in spikes dictionary
         handles = {}
         for i, (node_id, node_spikes) in enumerate(tspikes.items()):
             # If at least 1 spike detected
@@ -352,7 +352,7 @@ class NodePopulation(NeuronModel):
                 # Extract color and plot raster on appropriate line
                 cell_type = self.parse_cell_type(node_id)
                 yspan = (1 - ymargin) / 2
-                yref = self.size() - i
+                yref = self.size() - 1 - i
                 ax.vlines(node_spikes, yref - yspan, yref + yspan, colors=cmap[cell_type])
         
         # Add cell type legend if needed
@@ -880,23 +880,23 @@ class CorticalNodeNetwork(SmartNodeNetwork):
         }
     }
 
-    # Synaptic weights (in uS) for each connection type
-    # TODO: modify weigths to reflect differences in neurons membrane area between
-    # (Vierling-Classen et. al, 2010) and (Plaksin et al., 2016)
+    # Synaptic weights (in uS) for each connection type from (Vierling-Classen et. al, 2010), 
+    # modified to compensate for differences in post-synaptic neuron membrane area between
+    # their multi-compartment models and the NICE point-neuron models from (Plaksin et al., 2016).
     syn_weights = {
         'RS': {
-            'RS': 0.001635,
-            'FS': 0.001316,
-            'LTS': 0.00099512
+            'RS': 0.001368638,
+            'FS': 0.002539801,
+            'LTS': 0.004301499
         },
         'FS': {
-            'RS': 0.008,
-            'FS': 0.023421,
-            'LTS': 0.1
+            'RS': 0.0066967,
+            'FS': 0.045201132,
+            'LTS': 0.432259291
         },
         'LTS': {
-            'RS': 0.1059,
-            'FS': 0.002714
+            'RS': 0.088647563,
+            'FS': 0.005237858
         }
     }
 
