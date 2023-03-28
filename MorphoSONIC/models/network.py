@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-27 23:48:35
+# @Last Modified time: 2023-03-28 14:04:28
 
 from itertools import product
 import random
@@ -21,6 +21,7 @@ from PySONIC.neurons import getPointNeuron
 from PySONIC.core import Model, Drive, getDriveArray, SpatiallyExtendedTimeSeries
 from PySONIC.postpro import detectSpikes
 from PySONIC.plt import TimeSeriesPlot
+from PySONIC.utils import add_indent, isIterable
 
 from ..core.pyhoc import *
 from . import Node, DrivenNode
@@ -138,6 +139,8 @@ class NodePopulation(NeuronModel):
     @classmethod
     def parse_cell_type(cls, node_id):
         ''' Parse cell type from node id '''
+        if isIterable(node_id):
+            return [cls.parse_cell_type(x) for x in node_id]
         mo = re.match(cls.nodeid_pattern, node_id)
         if mo is None:
             raise ValueError(f'"{node_id}" does not match node ID pattern: {cls.nodeid_pattern}')
@@ -277,23 +280,117 @@ class NodePopulation(NeuronModel):
             ispikes, *_ = detectSpikes(node_data)
             tspikes[node_id] = node_data.time[ispikes.astype(int)]
         return tspikes
+
+    def compute_firing_rates(self, tspikes, protocol, binsize=None, groupby=None):
+        '''
+        Compute firing rates from spikes timings 
+
+        :param tspikes: dictionary of spikes timings
+        :param binsize (optional): binning time interval for spike counting (defaults to 10% of total stimulation time)
+        :param groupby (optional): grouping variable for firing rate computation (e.g. "celltype"). If no
+            grouping variable is provided, firing rates are index by node ID
+        :return: pandas firing rate object, indexed by time and grouping variable (or node ID).
+            - If no grouping variable is used, a simple pandas Series is returned.
+            - If a grouping variable is used, a pandas DataFrame is returned with mean and standard error columns
+        '''
+        # Compute bin edges and mid points
+        if binsize is None:
+            binsize = protocol.tstop / 10
+        bins = np.arange(0, protocol.tstop + binsize / 2, binsize)
+        mids = (bins[:-1] + bins[1:]) / 2
+
+        # Log
+        s = 'computing firing rates'
+        if groupby is not None:
+            s = f'{s} by {groupby}'
+        if binsize is not None:
+            s = f'{s} in {binsize} s bins'
+        logger.info(s)
+
+        # Count spikes in each bin, for each constituent node
+        nspikes = {k: np.histogram(v, bins=bins)[0] for k, v in tspikes.items()}
+
+        # Assemble into DataFrame, and stack along node IDs
+        tkey = 'time (s)'
+        nodekey = 'node ID'
+        nspikes = (
+            pd.DataFrame(nspikes)
+            .assign(**{tkey: mids})
+            .set_index(tkey)
+            .rename_axis(nodekey, axis='columns')
+            .stack()
+            .rename('# spikes')
+        )
+
+        # Compute corresponding firing rates
+        rates = (nspikes / binsize).rename('spike rate (Hz)')
+
+        # Group results by variable, if specified
+        if groupby is not None:
+            if groupby == 'celltype':
+                rates = rates.to_frame()
+                rates['celltype'] = self.parse_cell_type(rates.index.get_level_values(nodekey))
+                rates = (rates
+                    .groupby([tkey, 'celltype'])
+                    ['spike rate (Hz)']
+                    .agg(['mean', 'sem'])
+                    .stack()
+                    .unstack()
+                )
+            else:
+                raise ValueError(f'invalid grouping variable: "{groupby}"')
+        
+        # Return
+        return rates
     
-    def plot_spikes_raster(self, tspikes, protocol, ymargin=0.2, stim_mark='auto', nodelabel='auto'):
+    @staticmethod
+    def add_stim_mark(ax, protocol, mark_type='auto'):
+        '''
+        Add stimulus mark on timeseries axis
+        
+        :param ax: axis object
+        :param protocol: protocol object
+        :param mark_type (default = "auto"): how to represent stimulus:
+            - "all": mark each individual pulse
+            - "span": mark overall stimulus span
+            - "auto": automatically choose between "all" and "span" depending on stimulus complexity
+            - False: no mark
+        '''
+        # Extract stimulation events from protocol
+        evs = protocol.stimEvents()
+        # Classify into ON and OFF events
+        on_events = list(filter(lambda x: x[1] != 0., evs))
+        off_events = list(filter(lambda x: x[1] == 0., evs))
+        assert len(on_events) == len(off_events), 'imbalanced protocol'
+        # Assemble into pulse list
+        pulses = [(ton, toff, val) for (ton, val), (toff, _) in zip(on_events, off_events)]
+        # If "auto" option specified
+        if mark_type == 'auto':
+            # Extract event times, and compute average time delta between each event
+            avg_time_delta = np.diff([x[0] for x in evs]).mean()
+            # choose between "span" and "all" mode depending on ratio between
+            # average time delta and simulation time span
+            rel_avg_time_delta = avg_time_delta / protocol.tstop
+            mark_type = 'span' if rel_avg_time_delta < .005 else 'all'
+        # If "span" mode, reduce protocol to single pulse
+        if mark_type == 'span':
+            pulses = [(pulses[0][0], pulses[-1][1], pulses[0][2])]
+        # Draw patches for each selected pulses
+        TimeSeriesPlot.addPatches(ax, pulses, {'factor': 1})
+    
+    def plot_spikes_raster(self, tspikes, protocol, ymargin=0.2, stim_mark='auto', nodelabel='auto', ax=None):
         '''
         Plot spikes raster for each node, color-coded by cell type
         
         :param tspikes: dictionary of spike times (in s) per node
         :param protocol: pulsing protocol used during the simulation
         :param ymargin (optional): relative vertical margin between reach raster line
-        :param stim_mark (default = "span"): how to represent stimulus:
-            - "all": mark each individual pulse
-            - "span": mark overall stimulus span
-            - "auto": automatically choose between "all" and "span" depending on stimulus complexity
-            - False: no mark
+        :param stim_mark (optional): how to represent stimulus
         :param nodelabel: how to label nodes:
             - "all": label all nodes on y-axis
             - "type": indicate only cell types via legend
             - "auto": automatically choose between "all" and "type" depending on network size
+        :param ax (optional): plotting axis
         :return: figure handle
         '''
         logger.info('plotting spikes rasters')
@@ -302,7 +399,10 @@ class NodePopulation(NeuronModel):
             nodelabel = 'all' if len(tspikes) <= 30 else 'type'
         
         # Create figure backbone
-        fig, ax = plt.subplots()
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.get_figure()
         sns.despine(ax=ax)
         ax.set_title('spikes raster')
         ax.set_xlabel('time (s)')
@@ -318,27 +418,7 @@ class NodePopulation(NeuronModel):
 
         # If stimulus mark is specified
         if stim_mark != False:
-            # Extract stimulation events from protocol
-            evs = protocol.stimEvents()
-            # Classify into ON and OFF events
-            on_events = list(filter(lambda x: x[1] != 0., evs))
-            off_events = list(filter(lambda x: x[1] == 0., evs))
-            assert len(on_events) == len(off_events), 'imbalanced protocol'
-            # Assemble into pulse list
-            pulses = [(ton, toff, val) for (ton, val), (toff, _) in zip(on_events, off_events)]
-            # If "auto" option specified
-            if stim_mark == 'auto':
-                # Extract event times, and compute average time delta between each event
-                avg_time_delta = np.diff([x[0] for x in evs]).mean()
-                # choose between "span" and "all" mode depending on ratio between
-                # average time delta and simulation time span
-                rel_avg_time_delta = avg_time_delta / protocol.tstop
-                stim_mark = 'span' if rel_avg_time_delta < .005 else 'all'
-            # If "span" mode, reduce protocol to single pulse
-            if stim_mark == 'span':
-                pulses = [(pulses[0][0], pulses[-1][1], pulses[0][2])]
-            # Draw patches for each selected pulses
-            TimeSeriesPlot.addPatches(ax, pulses, {'factor': 1})
+            self.add_stim_mark(ax, protocol, mark_type=stim_mark)
 
         # Construct colormap with cell-type color code
         ctypes = self.parse_cell_types(unique=True)
@@ -364,6 +444,85 @@ class NodePopulation(NeuronModel):
 
         # Return
         return fig
+    
+    def plot_firing_rates(self, tspikes, protocol, binsize=None, groupby=None, render='auto'):
+        ''' 
+        Compute and plot firing rate profiles.
+
+        :param tspikes: dictionary of spike times (in s) per node
+        :param protocol: pulsing protocol used during the simulation
+        :param binsize: binning time interval for spike counting
+        :param groupby: grouping variable for firing rate computation (e.g. "celltype"). If no
+            grouping variable is provided, firing rates are index by node ID        
+        :param render: how to render FR profiles (in case of individual node rendering):
+            - "lines": plot each profile as a line
+            - "map": plot profiles on a heatmap
+            - "auto": automatically choose between "lines" and "map" depending on network size
+        :return: figure handle
+        '''
+        # Compute firing rates from spikes timings
+        FRs = self.compute_firing_rates(tspikes, protocol, binsize=binsize, groupby=groupby)
+        # Create figure backbone
+        fig, ax = plt.subplots()
+        sns.despine(ax=ax)
+        
+        # If grouping variable provided
+        if groupby is not None:
+            if render == 'map':
+                raise ValueError(f'heatmap rendering not implemented with "{groupby}" grouping')
+            render = 'lines'
+            # Define discrete color mapping for group values
+            if groupby == 'celltype':
+                ctypes = self.parse_cell_types(unique=True)
+                cdict = dict(zip(ctypes, plt.get_cmap('tab10').colors))
+            else:
+                raise ValueError(f'no color mapping defined for "{groupby}" grouping variable')
+            # For each group
+            for key, group in FRs.groupby(groupby):
+                gdata = group.droplevel('celltype')
+                # Plot mean trace with appropriate color
+                gdata.plot(y='mean', c=cdict[key], label=key, ax=ax)
+                # If available, plot +/-sem shading
+                if not gdata['sem'].isna().any():
+                    ax.fill_between(
+                        gdata.index, gdata['mean'] - gdata['sem'], gdata['mean'] + gdata['sem'],
+                        fc=cdict[key], ec=None, alpha=0.3)
+
+        # If no grouping variable provided
+        else:
+            gby = FRs.index.names[-1]
+            # Define rendering strategy 
+            if render == 'auto':
+                gidxs = FRs.index.unique(gby).values
+                render = 'lines' if len(gidxs) <= 10 else 'map'
+
+            # Line rendering: render each nod FR profile as its own line
+            if render == 'lines':
+                sns.lineplot(
+                    ax=ax, data=FRs.to_frame(), x='time (s)', y='spike rate (Hz)', hue=gby)
+            # Heatmap rendering: render FR profiles on common heatmap
+            else:
+                fig.subplots_adjust(right=0.8)
+                pos = ax.get_position()
+                cbar_ax = fig.add_axes([pos.x1 + 0.05, pos.y0, .05, pos.y1 - pos.y0])
+                cbar_ax.set_title('spike rate (Hz)')
+                data = FRs.unstack().T
+                data.columns = data.columns.map(lambda x: np.round(x, 4))
+                sns.heatmap(
+                    data=data,
+                    ax=ax,
+                    cbar_ax=cbar_ax,
+                    cmap='viridis'
+                )
+        
+        # Post-process figure
+        if render == 'lines':
+            self.add_stim_mark(ax, protocol)
+            ax.set_xlim(0, protocol.tstop)
+            ax.set_ylabel('spike rate (Hz)')
+
+        # Return
+        return fig
 
 
 class NodeNetwork(NodePopulation):
@@ -371,13 +530,22 @@ class NodeNetwork(NodePopulation):
     ''' Generic interface to neural network of nodes '''
 
     simkey = 'node_network'
+    CON_MAPPINGS = [  # possible connectivity mappings 
+            'presyn-celltype', 
+            'postsyn-celltype',
+            'syntype',
+            'synmodel',
+            'synweight',
+            'weighted-syntype'
+        ]
 
-    def __init__(self, nodes, connections, presyn_var='Qm'):
+    def __init__(self, nodes, connections, presyn_var='Qm', connect=True):
         ''' Construct network.
 
             :param connections: list of (presyn_node_id, postsyn_node_id syn_weight, syn_model)
                 for each connection to be instantiated
             :param presyn_var: reference variable for presynaptic threshold detection (Vm or Qm)
+            :param connect (default=True): whether to wire specified connections upon instantiation
         '''
         # Construct node collection
         super().__init__(nodes)
@@ -385,7 +553,8 @@ class NodeNetwork(NodePopulation):
         self.connections = connections
         self.presyn_var = presyn_var
         # Connect nodes
-        self.connect_all()
+        if connect:
+            self.connect_all()
     
     def __repr__(self):
         ''' Explicit naming of the model instance. '''
@@ -474,10 +643,28 @@ class NodeNetwork(NodePopulation):
         for presyn_node_id, postsyn_node_id, syn_weight, syn_model in self.connections:
             self.connect(presyn_node_id, postsyn_node_id, syn_model, syn_weight)
     
-    def clear_connections(self):
+    def disconnect_all(self):
         ''' Clear all synapses and network connection objects '''
+        logger.info(f'removing all {len(self.netcon_objs)} connections between nodes')
         self.syn_objs = None
         self.netcon_objs = None
+    
+    def init_connectivity_matrix(self, fill=0):
+        '''
+        Initalize connectivity matrix filled with constant value
+        
+        :param fill: value used to fill the matrix
+        :return: n-by-n matrix, with n being the network size
+        '''
+        keys = ['pre-syn', 'post-syn']
+        candidate_pairs = list(product(self.ids, self.ids))
+        return (
+            pd.DataFrame(data=candidate_pairs, columns=keys)
+            .set_index(keys)
+            .assign(x=fill)['x']
+            .unstack()
+            .reindex(self.ids).reindex(self.ids, axis='columns')
+        )
 
     def get_connectivity_matrix(self, criterion=None):
         ''' 
@@ -493,29 +680,11 @@ class NodeNetwork(NodePopulation):
             If no criterion is provided, a simple (connection / no connection) binary mapping is used
         :return: n-by-n connectivity matrix, with n = network size
         '''
-        candidate_criteria = [
-            'presyn-celltype', 
-            'postsyn-celltype',
-            'syntype',
-            'synmodel',
-            'synweight',
-            'weighted-syntype'
-        ]
-        if criterion is not None and criterion not in candidate_criteria:
+        # Check mapping criterion validity 
+        if criterion is not None and criterion not in self.CON_MAPPINGS:
             raise ValueError(
-                f'invalid criterion: "{criterion}". Candidates are {candidate_criteria}')
+                f'invalid mapping criterion: "{criterion}". Candidates are {self.CON_MAPPINGS}')
 
-        # Initalize connectivity matrix filled with zeros
-        keys = ['pre-syn', 'post-syn']
-        candidate_pairs = list(product(self.ids, self.ids))
-        candidate_pairs = (
-            pd.DataFrame(data=candidate_pairs, columns=keys)
-            .set_index(keys)
-            .assign(x=0)['x']
-            .unstack()
-            .reindex(self.ids).reindex(self.ids, axis='columns')
-        )
-        
         # Construct discrete mapping onto category, if required 
         if criterion is not None:
             refobjs = None
@@ -525,6 +694,9 @@ class NodeNetwork(NodePopulation):
                 refobjs = list(set([con[-1] for con in self.connections]))
             if refobjs is not None:
                 mymap = dict(zip(refobjs, np.arange(len(refobjs)) + 1))
+
+        # Initalize connectivity matrix filled with zeros
+        con_matrix = self.init_connectivity_matrix()
 
         # Mark established connections within matrix
         for presyn_id, postsyn_id, syn_weight, syn_model in self.connections:
@@ -542,17 +714,18 @@ class NodeNetwork(NodePopulation):
                 val = syn_weight
             elif criterion == 'weighted-syntype':  # map according to synapse type (E/I) and weight
                 val = syn_weight * syn_model.syntype
-            candidate_pairs.loc[presyn_id, postsyn_id] = val
+            con_matrix.loc[presyn_id, postsyn_id] = val
 
         # Return 
-        return candidate_pairs
+        return con_matrix
 
-    def plot_connectivity_matrix(self, hue=None, background_color='lightgray'):
+    def plot_connectivity_matrix(self, hue=None, background_color='lightgray', ax=None):
         '''
         Plot connectivity matrix
         
         :param hue (optional): color-coding criterion
         :param background_color (optional): matrix background color
+        :param ax (optional): plotting axis
         :return figure handle
         '''
         # Extract connectivity matrix with appropriate mapping criterion
@@ -610,7 +783,10 @@ class NodeNetwork(NodePopulation):
             cmap.set_bad(background_color)
         
         # Create figure backbone, and add colorbar axis if needed
-        fig, ax = plt.subplots(figsize=(6, 6))
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(6, 6))
+        else:
+            fig = ax.get_figure()
         ax.set_aspect(1.)
         ax.set_title(f'{self.size()}-by-{self.size()} connectivity matrix')
         if cbar:
@@ -647,7 +823,7 @@ class SmartNodeNetwork(NodeNetwork):
 
     simkey = 'smart_node_network'
 
-    def __init__(self, ntot, proportions, conn_rates, syn_models, syn_weights, drives=None, **node_kwargs):
+    def __init__(self, ntot, proportions, conn_rates, syn_models, syn_weights, drives=None, connect=True, **node_kwargs):
         '''
         Initialization
         
@@ -665,10 +841,9 @@ class SmartNodeNetwork(NodeNetwork):
         # Get reference point neuron for each cell type
         pneurons = {k: getPointNeuron(k) for k in self.ncells.keys()}
 
+        # Instantiate nodes with appriopriate drives
         if drives is None:
             drives = {}
-
-        # Instantiate nodes
         nfmt = int(np.ceil(np.log10(max(self.ncells.values()))))
         fmt = f'{{:0{nfmt}}}'
         self.nodesdict = {}
@@ -701,10 +876,10 @@ class SmartNodeNetwork(NodeNetwork):
                     if not ignore:
                         self.conndict[presyn][postsyn] = [(*pair, w, model) for pair in pairs]
         concounts = self.con_count_matrix()
-        logger.info(f'generated {concounts.values.sum()} random connection pairs:\n{concounts}')
+        logger.info(f'generated {concounts.values.sum()} random connection pairs:\n{add_indent(repr(concounts), nspaces=3)}')
 
-        # Initialize parent class
-        super().__init__(self.get_all_nodes(), self.get_all_connections())
+        # Initialize parent network class
+        super().__init__(self.get_all_nodes(), self.get_all_connections(), connect=connect)
     
     @classmethod
     def initFromMeta(cls, meta):
@@ -784,7 +959,7 @@ class SmartNodeNetwork(NodeNetwork):
 
 class CorticalNodeNetwork(SmartNodeNetwork):
     '''
-    Cortical network model as defined in (Vierling-Classen et al., 2010)
+    Cortical network model derived from (Vierling-Classen et al., 2010)
     
     Reference: 
     *Vierling-Claassen, D., Cardin, J.A., Moore, C.I., and Jones, S.R. (2010). Computational 
@@ -915,10 +1090,10 @@ class CorticalNodeNetwork(SmartNodeNetwork):
         'LTS': 0.0
     }
 
-    def __init__(self, ntot, **node_kwargs):
+    def __init__(self, ntot, connect=True, **node_kwargs):
         super().__init__(
             ntot, 
             self.proportions, self.conn_rates, self.syn_models, self.syn_weights,
-            drives=self.thalamic_drives,
+            drives=self.thalamic_drives, connect=connect,
             **node_kwargs
         )

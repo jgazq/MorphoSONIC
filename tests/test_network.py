@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 19:51:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-27 23:16:18
+# @Last Modified time: 2023-03-28 09:55:32
 
 import logging
 
@@ -100,7 +100,7 @@ class TestNetwork(TestBase):
 
         # Clear any existing conections
         if isinstance(system, NodeNetwork):
-            system.clear_connections()
+            system.disconnect_all()
 
         # Plot comparative membrane charge density profiles
         SectionCompTimeSeries([(data, meta)], 'Qm', system.ids).render(cmap=None)
