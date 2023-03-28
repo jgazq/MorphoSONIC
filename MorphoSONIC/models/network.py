@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-27 23:39:19
+# @Last Modified time: 2023-03-27 23:48:35
 
 from itertools import product
 import random
@@ -560,7 +560,8 @@ class NodeNetwork(NodePopulation):
         # Extract matrix data type
         dtype = matrix.values.dtype
         # Replace zeros by NaNs
-        matrix = matrix.replace(0, np.nan)
+        if hue is not None:
+            matrix = matrix.replace(0, np.nan)
         # Extract unique non-NaN matrix values and recast them to original data types
         uniques = np.sort(np.unique(matrix.values))
         uniques = uniques[~np.isnan(uniques)].astype(dtype)
