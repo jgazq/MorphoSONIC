@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 19:51:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-24 09:25:20
+# @Last Modified time: 2023-03-27 23:16:18
 
 import logging
 
@@ -58,14 +58,6 @@ class TestNetwork(TestBase):
             }
         }
 
-        # Thalamic drive to cortical cells (as in Plaksin 2016)
-        I_Th_RS = 0.17  # nA
-        thalamic_drives = {
-            'RS': I_Th_RS,
-            'FS': 1.4 * I_Th_RS,
-            'LTS': 0.0
-        }
-
         # Generate synaptic connections using synaptic models from
         # (Vierling-Classen et al. 2010) model
         self.connections = []
@@ -80,7 +72,7 @@ class TestNetwork(TestBase):
 
         # Driving currents
         self.idrives = {k: (v * 1e-6) / self.pneurons[k].area
-                        for k, v in thalamic_drives.items()}  # mA/m2
+                        for k, v in CorticalNodeNetwork.thalamic_drives.items()}  # mA/m2
 
         # Corresponding Node models, with appropriate driving currents
         self.nodes = {k: DrivenNode(v, self.idrives[k], a=self.a, fs=self.fs)
@@ -103,8 +95,8 @@ class TestNetwork(TestBase):
         # Create appropriate system
         system = NodeNetwork(nodes, self.connections) if connect else NodePopulation(nodes)
 
-        # Simulate system
-        data, meta = system.simulate(drives, self.pp)
+        # Simulate system and record spikes
+        (data, tspikes), meta = system.simulate(drives, self.pp, record_spikes=True)
 
         # Clear any existing conections
         if isinstance(system, NodeNetwork):
@@ -112,6 +104,9 @@ class TestNetwork(TestBase):
 
         # Plot comparative membrane charge density profiles
         SectionCompTimeSeries([(data, meta)], 'Qm', system.ids).render(cmap=None)
+
+        # Plot spikes raster
+        system.plot_spikes_raster(tspikes, self.pp)
 
     def test_drive(self, connect):
         ''' Thalamic drive only '''

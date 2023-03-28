@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-27 18:52:44
+# @Last Modified time: 2023-03-27 23:39:19
 
 from itertools import product
 import random
@@ -900,7 +900,13 @@ class CorticalNodeNetwork(SmartNodeNetwork):
         }
     }
 
-    # Thalamic drive to cortical cells (as in Plaksin 2016)
+    # Thalamic drive to cortical cells (from in Plaksin 2016), meant to
+    # produce 7 Hz firing rate in RS neuron(s) to mimic spontaneous activity 
+    # during anesthetized experiments.
+    # TODO:
+    # - adapt to match spontanteous baseline during awake experiments
+    # - replace by NetStim?
+    # - add noise to drive?
     I_Th_RS = 0.17  # nA
     thalamic_drives = {
         'RS': I_Th_RS,

@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-17 11:59:50
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-07-27 17:47:07
+# @Last Modified time: 2023-03-27 22:49:55
 
 import logging
 import numpy as np
@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 
 from PySONIC.utils import logger
 from PySONIC.neurons import getPointNeuron
-from PySONIC.core import PulsedProtocol
+from PySONIC.core import ElectricDrive, PulsedProtocol
 
 from MorphoSONIC.core.synapses import *
-from MorphoSONIC.core.node import Node
+from MorphoSONIC.models import Node
 from MorphoSONIC.constants import *
 
 logger.setLevel(logging.INFO)
@@ -49,7 +49,7 @@ def getSynapseData(syn_model, sf, syn_delay=1., tstop=4.):
     g.record(syn._ref_g)
 
     # Simulate
-    data, meta = node.simulate(0., PulsedProtocol(tstop, 0.))
+    data, _ = node.simulate(ElectricDrive(0.), PulsedProtocol(tstop, 0.))
 
     # Retrieve spikes timings
     tspikes = np.array(tspikes.to_python())
