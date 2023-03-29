@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2018-09-26 17:11:28
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-22 16:00:41
+# @Last Modified time: 2023-03-29 18:35:51
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -43,7 +43,10 @@ class SectionGroupedTimeSeries(GroupedTimeSeries):
             data, meta = loadData(entry, frequency)
         else:
             data, meta = entry
-        data = data[self.section_id]
+        if self.section_id == 'center':
+            data = data[data.centralkey]
+        else:
+            data = data[self.section_id]
         data = data.iloc[::frequency]
         if trange is not None:
             tmin, tmax = trange
@@ -60,8 +63,8 @@ class SectionGroupedTimeSeries(GroupedTimeSeries):
 class SectionCompTimeSeries(CompTimeSeries):
     ''' Plot the time evolution of a specific variable across sections, for a specific condition '''
 
-    def __init__(self, filepath, varname, sections):
-        self.entry = filepath[0]
+    def __init__(self, filepaths, varname, sections):
+        self.entry = filepaths[0]
         self.model = None
         self.ref_meta = None
         nsec = len(sections)

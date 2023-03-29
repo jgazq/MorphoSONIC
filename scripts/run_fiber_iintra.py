@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-09-06 16:12:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-07-27 17:46:51
+# @Last Modified time: 2023-03-29 17:47:56
 
 ''' Run simulations of an SENN fiber model with a specific point-neuron mechanism
     upon intracellular electrical stimulation. '''
@@ -32,7 +32,7 @@ def main():
             for nnodes in args['nnodes']:
                 fiber = fiber_class(fiberD, nnodes)
                 for sec_id in args['secid']:
-                    if sec_id is None:
+                    if sec_id is None or sec_id == 'center':
                         sec_id = fiber.central_ID
                     psource = IntracellularCurrent(sec_id, mode=args['mode'])
                     if args['save']:

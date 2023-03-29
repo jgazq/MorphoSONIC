@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-08-18 21:14:43
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-22 20:42:52
+# @Last Modified time: 2023-03-29 18:40:38
 
 import matplotlib.pyplot as plt
 from PySONIC.parsers import *
@@ -29,7 +29,12 @@ class SpatiallyExtendedParser(Parser):
 
     def addSectionID(self):
         self.add_argument(
-            '--secid', nargs='+', type=str, help='Section ID')
+            '--secid', nargs='+', type=str, help='ID of morphological section targeted by stimulus')
+    
+    def parseSecID(self, args):
+        if not isIterable(args['secid']):
+            args['secid'] = [args['secid']]
+        return args
 
     def parse(self, args=None):
         if args is None:
@@ -41,26 +46,30 @@ class SpatiallyExtendedParser(Parser):
         return [args[k] for k in ['rs']]
 
     @staticmethod
-    def parsePlot(args, output):
+    def parsePlot(args, outputs):
         render_args = {}
         if 'spikes' in args:
             render_args['spikes'] = args['spikes']
-        if args['section'] == ['all']:
-            raise ValueError('sections names must be explicitly specified')
+        if args['section'] is None:
+            raise ValueError('names of sections to plot must be explicitly specified')
         if args['compare']:
             if args['plot'] == ['all']:
                 logger.error('Specific variables must be specified for comparative plots')
                 return
             for key in ['cmap', 'cscale']:
                 render_args[key] = args[key]
-            for pltvar in args['plot']:
-                comp_plot = SectionCompTimeSeries(output, pltvar, args['section'])
-                if render_args['cmap'] is None:
-                    del render_args['cmap']
-                comp_plot.render(**render_args)
+            if render_args['cmap'] is None:
+                del render_args['cmap']
+            for output in outputs:
+                for pltvar in args['plot']:
+                    sections = args['section']
+                    if sections == ['all']:
+                        sections = list(output[0].keys())
+                    comp_plot = SectionCompTimeSeries([output], pltvar, sections)
+                    comp_plot.render(**render_args)
         else:
             for key in args['section']:
-                scheme_plot = SectionGroupedTimeSeries(key, output, pltscheme=args['pltscheme'])
+                scheme_plot = SectionGroupedTimeSeries(key, outputs, pltscheme=args['pltscheme'])
                 scheme_plot.render(**render_args)
         plt.show()
 
@@ -91,8 +100,20 @@ class FiberParser(SpatiallyExtendedParser):
             '--nnodes', nargs='+', type=int, help='Number of nodes of Ranvier')
 
     def parsePlot(self, args, output):
-        if args['section'] == ['all']:
-            args['section'] = [f'node{i}' for i in range(args['nnodes'][0])]
+        if args['section'] is None:
+            if args['compare']:
+                logger.warning('no section specified for plot -> showing profiles from all recorded sections')
+                args['section'] = ['all']
+            else:
+                logger.warning('no section specified for plot -> plotting from central section only')
+                args['section'] = ['center']
+        if args['section'] == ['center'] and args['compare']:
+            raise ValueError(
+                '"center" placeholder for section ID cannot be used when comparing results from models of different sizes')
+        if len(args['section']) > 5 and args['plot'] != ['all'] and not args['compare']:
+            logger.warning(
+                'More than 5 morphological sections were specified for plots -> falling back to comparative plot(s)')
+            args['compare'] = True
         return SpatiallyExtendedParser.parsePlot(args, output)
 
     @staticmethod
@@ -181,6 +202,9 @@ class IintraFiberParser(EStimFiberParser):
         self.defaults.update({'secid': None, 'mode': 'anode', 'amp': 2.0})
         self.factors.update({'amp': 1 / A_TO_NA})
         self.addSectionID()
+    
+    def parse(self):
+        return self.parseSecID(super().parse())
 
 
 class AStimFiberParser(FiberParser, AStimParser):
@@ -206,16 +230,14 @@ class SectionAStimFiberParser(AStimFiberParser):
 
     def __init__(self):
         super().__init__()
-        self.defaults.update({'sec_id': None})
+        self.defaults.update({'secid': None})
         self.addSectionID()
 
     def parseAmplitude(self, args):
         return AStimParser.parseAmplitude(self, args)
 
     def parse(self):
-        args = super().parse()
-        args['secid'] = [args['secid']]
-        return args
+        return self.parseSecID(super().parse())
 
 
 class SpatiallyExtendedTimeSeriesParser(TimeSeriesParser):

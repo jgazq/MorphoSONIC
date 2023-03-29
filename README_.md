@@ -118,13 +118,17 @@ You can easily run simulations of punctual and spatially-extended models using t
 
 ```python run_node_astim.py -n RS -a 32 -f 500 -A 100 --tstim 150 --method sonic -p Qm```
 
-- Use `run_fiber_iextra.py` for simulations of a **peripheral fiber models** (myelinated or unmyelinated) of any diameter and with any number of nodes upon **extracellular electrical stimulation**. For instance, a 20 um diameter, 11 nodes SENN-type myelinated fiber, stimulated at 0.6 mA for 0.1 ms by a cathodal point-source electrode located one internodal distance above the central node:
+- Use `run_fiber_iextra.py` for simulations of a **peripheral fiber models** (myelinated or unmyelinated) of any diameter and with any number of nodes upon **extracellular electrical stimulation**. For instance, to simulate a 20 um diameter, 11 nodes SENN-type myelinated fiber, stimulated at 0.6 mA for 0.1 ms by a cathodal point-source electrode located one internodal distance above the central node, and plot the resulting membrane potential profiles across all model sections:
 
-```python run_fiber_iextra.py --type senn -d 20 --nnodes 11 -A -0.6 --tstim 0.1 -p Vm --compare --section all```
+```python run_fiber_iextra.py --type senn -d 20 --nnodes 11 -A -0.6 --tstim 0.1 -p Vm --compare```
 
-- Use `run_fiber_iintra.py` for simulations of a **peripheral fiber models** (myelinated and unmyelinated) of any diameter and with any number of nodes upon **intracellular electrical stimulation**. For instance, a 20 um diameter, 11 nodes SENN-type fiber, stimulated at 3 nA for 0.1 ms by a anodic current injected intracellularly at the central node:
+- Use `run_fiber_iintra.py` for simulations of a **peripheral fiber models** (myelinated and unmyelinated) of any diameter and with any number of nodes upon **intracellular electrical stimulation**. For instance, to simulate a 20 um diameter, 11 nodes SENN-type fiber, stimulated at 3 nA for 0.1 ms by a anodic current injected intracellularly at the central node, and plot the resulting membrane potential profiles across all model sections:
 
-```python run_fiber_iintra.py --type senn -d 20 --nnodes 11 -A 3 --tstim 0.1 -p Vm --compare --section all```
+```python run_fiber_iintra.py --type senn -d 20 --nnodes 11 -A 3 --tstim 0.1 --secid center -p Vm --compare```
+
+- Use `run_fiber_astim_section.py` for simulations of a **peripheral fiber models** (myelinated and unmyelinated) of any diameter and with any number of nodes upon **acoustic stimulation restricted to a particular morphological section**. For instance, a 20 um diameter, 11 nodes SENN-type fiber, sonicated at 500 kHz and 100 kPa for 0.1 ms on its central node, and plot the resulting membrane potential profiles across all model sections:
+
+```python run_fiber_astim_section.py --type senn -d 20 --nnodes 11 -f 500 -A 100 --tstim 0.1 --secid center -p Vm --compare```
 
 ### Saving and visualizing results
 

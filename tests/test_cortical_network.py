@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2023-03-23 11:53:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-28 14:13:18
+# @Last Modified time: 2023-03-28 17:07:32
 
 import logging
 import time
@@ -38,12 +38,12 @@ fig1 = network.plot_connectivity_matrix(hue='presyn-celltype')
 
 # US drive parameters
 Fdrive = 500e3  # Hz
-Adrive = 100e3  # Pa
+Adrive = 30e3  # Pa
 US_drive = AcousticDrive(Fdrive, Adrive)
 
 # Pulsing parameters
 tstart = 2.  # s
-tstim = 1.    # s
+tstim = .2    # s
 toffset = 2.  # s
 PRF = 100.0    # Hz
 DC = .5       # (-)
