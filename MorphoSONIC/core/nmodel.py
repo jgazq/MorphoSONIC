@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-02-19 14:42:20
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-16 13:38:57
+# @Last Modified time: 2023-03-30 14:07:09
 
 import abc
 from neuron import h
@@ -224,8 +224,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
         self.clearSections()
         self.clearLookups()
         self.clearDrives()
-        if any(sec.cell() == self for sec in getAllSecs()):
-            raise ValueError(f'clearing error: remaining {self} sections')
+        constituent_secs = list(filter(lambda s: s.cell() == self, getAllSecs()))
+        if len(constituent_secs) > 0:
+            s = '\n'.join([f'  - {s}' for s in constituent_secs])
+            raise ValueError(f'clearing error: remaining {self} sections:\n{s}')
 
     def reset(self):
         ''' Delete and re-construct all model sections. '''
@@ -588,7 +590,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
 class SpatiallyExtendedNeuronModel(NeuronModel):
     ''' Generic interface for spatially-extended NEURON models. '''
 
-    # Boolean stating whether to use equivalent currents for imposed extracellular voltage fields
+    # Whether to use equivalent currents for imposed extracellular voltage fields
     use_equivalent_currents = False
     has_passive_sections = False
 
@@ -712,9 +714,6 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
                 logger.debug(f'{k}: Iinj = {Iinj} nA')
         iclamps = []
         for k, Iinj in Iinj_dict.items():
-            # for sec, I in zip(self.sections[k].values(), Iinj):
-            #     if I != 0.:
-            #         iclamps.append(IClamp(sec, I))
             iclamps += [IClamp(sec, I) for sec, I in zip(self.sections[k].values(), Iinj)]
         return iclamps
 
@@ -732,12 +731,11 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
         with np.printoptions(**array_print_options):
             for k, Ve in Ve_dict.items():
                 logger.debug(f'{k}: Ve = {Ve} mV')
+        # Variant 1: inject equivalent intracellular currents
         if self.use_equivalent_currents:
-            # Variant 1: inject equivalent intracellular currents
             return self.setIClamps(self.toInjectedCurrents(Ve_dict))
+        # Variant 2: insert extracellular mechanisms
         else:
-            # Variant 2: insert extracellular mechanisms for a more realistic depiction
-            # of the extracellular field
             emechs = []
             for k, Ve in Ve_dict.items():
                 emechs += [ExtField(sec, v) for sec, v in zip(self.sections[k].values(), Ve)]
@@ -795,6 +793,9 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
             :param atol: absolute error tolerance for adaptive time step method.
             :return: output dataframe
         '''
+        # Reset time to zero (redundant, but helps with clarity during debugging)
+        h.t = 0
+        
         # Set distributed drives
         self.setDrives(source)
 
@@ -865,7 +866,7 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
                 return None
         else:
             # Use majority voting
-            nfrequent = np.int(stats.mode(nspikes).mode)
+            nfrequent = stats.mode(nspikes, keepdims=False).mode.astype(int)
             tspikes = {k: v for k, v in tspikes.items() if len(v) == nfrequent}
 
         return pd.DataFrame(tspikes)

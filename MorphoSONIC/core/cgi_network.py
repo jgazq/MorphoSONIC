@@ -3,43 +3,15 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-06-07 14:42:18
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-09-19 10:32:07
+# @Last Modified time: 2023-03-30 14:13:26
 
 import numpy as np
-from neuron import h, hclass
+import pandas as pd
+from neuron import h
 
-from PySONIC.utils import logger
-
-from .pyhoc import Matrix
+from .pyhoc import SquareMatrix, DiagonalMatrix, pointerMatrix, PointerVector
 from ..utils import seriesGeq
 from ..constants import *
-
-
-class SquareMatrix(Matrix):
-    ''' Interface to a square matrix object. '''
-
-    def __new__(cls, n):
-        ''' Instanciation. '''
-        return super(SquareMatrix, cls).__new__(cls, n, n)
-
-    def emptyClone(self):
-        ''' Return empty matrix of identical shape. '''
-        return SquareMatrix(self.nRow)
-
-
-class DiagonalMatrix(SquareMatrix):
-    ''' Interface to a diagonal matrix. '''
-
-    def __new__(cls, x):
-        ''' Instanciation. '''
-        return super(DiagonalMatrix, cls).__new__(cls, x.size)
-
-    def __init__(self, x):
-        ''' Initialization.
-
-            :param x: vector used to fill the diagonal.
-        '''
-        self.setdiag(0, h.Vector(x))
 
 
 class ConductanceMatrix(SquareMatrix):
@@ -191,97 +163,6 @@ class NormalizedConductanceMatrix(ConductanceMatrix):
         return mout
 
 
-class PointerVector(hclass(h.Vector)):
-    ''' Interface to a pointing vector, i.e. a vector that can "point" toward
-        subsets of other vectors.
-    '''
-
-    def __new__(cls):
-        super().__new__()
-
-    def __init__(self, *args, **kwargs):
-        ''' Initialization. '''
-        self.refs = []
-        super().__init__(*args, **kwargs)
-
-    def setVal(self, i, x):
-        ''' Item setter, adding the difference between the old an new value to all
-            reference vectors with their respective offsets.
-        '''
-        xdiff = x - self.get(i)
-        self.set(i, x)
-        for v, offset in self.refs:
-            v.set(i + offset, v.get(i + offset) + xdiff)
-
-    def addVal(self, i, x):
-        self.setVal(i, self.get(i) + x)
-
-    def addTo(self, v, offset, fac=1):
-        ''' Add the vector to a destination vector with a specific offset and factor. '''
-        for i, x in enumerate(self):
-            v.set(i, v.get(i) + x * fac)
-
-    def addRef(self, v, offset):
-        ''' Add a reference vector to "point" towards. '''
-        assert self.size() + offset <= v.size(), 'exceeds reference dimensions'
-        self.addTo(v, offset)
-        self.refs.append((v, offset))
-
-    def removeRef(self, iref):
-        ''' Remove a reference vector from the list. '''
-        self.addTo(*self.refs[iref], fac=-1)
-        del self.refs[iref]
-
-
-def pointerMatrix(MatrixBase):
-    ''' Interface to a pointing matrix, i.e. a matrix that can "point" toward
-        subsets of other matrices.
-    '''
-
-    class PointerMatrix(MatrixBase):
-
-        def __init__(self, *args, **kwargs):
-            ''' Initialization. '''
-            self.refs = []
-            super().__init__(*args, **kwargs)
-
-        @property
-        def nrefs(self):
-            return len(self.refs)
-
-        def addRef(self, mref, row_offset, col_offset):
-            ''' Add a reference matrix to "point" towards. '''
-            assert self.nRow + row_offset <= mref.nRow, 'exceeds reference dimensions'
-            assert self.nCol + col_offset <= mref.nCol, 'exceeds reference dimensions'
-            self.refs.append((mref, mref.emptyClone(), row_offset, col_offset))
-            self.updateRef(self.nrefs - 1)
-
-        def removeRef(self, iref):
-            ''' Remove a reference matrix. '''
-            mref, mholder, *_ = self.refs[iref]
-            mref.sub(mholder)  # remove old values from ref matrix
-            del self.refs[iref]
-
-        def updateRef(self, iref):
-            ''' Update a reference matrix. '''
-            mref, mholder, row_offset, col_offset = self.refs[iref]
-            mref.sub(mholder)                             # remove old values from ref matrix
-            self.copyTo(mholder, row_offset, col_offset)  # update holder matrix
-            mref.add(mholder)                             # add new values to ref matrix
-
-        def updateRefs(self):
-            ''' Update all reference matrices. '''
-            for i in range(self.nrefs):
-                self.updateRef(i)
-
-        def onFullUpdate(self):
-            self.updateRefs()
-
-    PointerMatrix.__name__ = f'Pointer{MatrixBase.__name__}'
-
-    return PointerMatrix
-
-
 class HybridNetwork:
     ''' Interface used to build a hybrid voltage network amongst a list of sections.
 
@@ -420,7 +301,6 @@ class HybridNetwork:
         Note also that the gx conductance is connected in series with another transverse
         conductance of value 1e9, to mimick NEURON's default 2nd extracellular layer.
     '''
-    log_nmax = 46
 
     def __init__(self, seclist, connections, has_ext_layer, is_dynamic_cm=False, verbose=False,
                  use_explicit_iax=False):
@@ -450,8 +330,12 @@ class HybridNetwork:
             self.log(details=True)
 
     def __repr__(self):
-        cm = {False: 'static', True: 'dynamic'}[self.is_dynamic_cm]
-        return f'{self.__class__.__name__}({self.nsec} sections, {self.nlayers} layers, {cm} cm)'
+        cm = {False: 'static', True: 'dynamic'}[self.is_dynamic_cm] + ' cm'
+        dims = f'{self.nsec} sections, {self.nlayers} layers'
+        s = f'{self.__class__.__name__}({dims}, {cm}'
+        if self.use_explicit_iax:
+            s = f'{s}, explicit iax'
+        return f'{s})'
 
     @property
     def seclist(self):
@@ -460,6 +344,10 @@ class HybridNetwork:
     @seclist.setter
     def seclist(self, value):
         self._seclist = value
+    
+    @property
+    def secnames(self):
+        return [str(x).split('.')[-1] for x in self.seclist]
 
     @property
     def connections(self):
@@ -658,9 +546,26 @@ class HybridNetwork:
         self.vx.addVal(i, new_ex - old_ex)
         self.iex.setVal(i, self.gx[i] * new_ex)
 
+    def mat_to_table(self, k):
+        ''' Convert matrix to table '''
+        if not hasattr(self, k):
+            raise ValueError(f'"{k}" matrix not found in {self}')
+        mat = getattr(self, k)
+        if not isinstance(mat, SquareMatrix):
+            raise ValueError(f'"{k}" is not a square matrix')
+        arr = mat.to_array()
+        if arr.shape[0] == self.nsec:
+            idxs = self.secnames
+        elif arr.shape[0] == 2 * self.nsec:
+            idxs = self.secnames + self.secnames
+        else:
+            raise ValueError(
+                f'cannot convert {arr.shape} matrix to table: dimensions do not match network size') 
+        return pd.DataFrame(data=arr, index=idxs, columns=idxs).style.format('{:.3g}')
+
     def logMat(self, k, unit):
-        logger.info(f'{k} ({unit}):')
-        getattr(self, k).printf('%-8g' if self.size <= 22 else '%-5g')
+        print(f'{k} ({unit}):\n{self.mat_to_table(k)}')
+        # getattr(self, k).printf('%-8g' if self.size <= 22 else '%-5g')
 
     def logCmat(self, k):
         self.logMat(k, 'mF/cm2')
@@ -670,9 +575,6 @@ class HybridNetwork:
 
     def log(self, details=False):
         ''' Print network components. '''
-        if self.size > self.log_nmax:
-            logger.warning(f'number of nodes ({self.size}) exceeds logging limit ({self.log_nmax})')
-            return
         if details and self.has_ext_layer:
             self.logCmat('Cx')
         self.logCmat('C')

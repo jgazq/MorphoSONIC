@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-02-27 23:08:23
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-14 16:00:57
+# @Last Modified time: 2023-03-29 19:34:51
 
 import numpy as np
 
@@ -298,7 +298,7 @@ class MRGFiber(FiberNeuronModel):
         '''
         return self.axialResistancePerUnitLength(self.rhop, d + 2 * w, d_in=d)
 
-    def clear(self):
+    def clearSections(self):
         ''' delete all model sections. '''
         del self.nodes
         del self.mysas

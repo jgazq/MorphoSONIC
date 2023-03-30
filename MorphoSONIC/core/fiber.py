@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2021-06-14 10:48:04
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-22 18:34:56
+# @Last Modified time: 2023-03-30 14:11:20
 
 import abc
 import numpy as np
@@ -20,7 +20,8 @@ from ..constants import *
 class FiberNeuronModel(SpatiallyExtendedNeuronModel):
     ''' Generic interface for fiber (single or double cable) NEURON models. '''
 
-    # Boolean stating whether to use equivalent currents for imposed extracellular voltage fields
+    # Whether to use equivalent currents for imposed extracellular voltage fields
+    # Defaults to True, as it simplifies the internal model definition
     use_equivalent_currents = True
 
     def __init__(self, fiberD, nnodes=None, fiberL=None, **kwargs):
@@ -72,8 +73,6 @@ class FiberNeuronModel(SpatiallyExtendedNeuronModel):
 
     @nnodes.setter
     def nnodes(self, value):
-        # if value % 2 == 0:
-        #     logger.warning(f'even number of nodes ({value})')
         self.set('nnodes', value)
 
     @property
@@ -352,17 +351,3 @@ class FiberNeuronModel(SpatiallyExtendedNeuronModel):
         if source.is_cathodal:
             xthr = -xthr
         return xthr
-
-    def needsFixedTimeStep(self, source):
-        if isinstance(source, (ExtracellularCurrent, GaussianVoltageSource)):
-            if not self.use_equivalent_currents:
-                return True
-        # if self.has_ext_mech:
-        #     return True
-        return False
-
-    def simulate(self, source, pp, atol=None):
-        return super().simulate(
-            source, pp,
-            dt=self.fixed_dt if self.needsFixedTimeStep(source) else None,
-            atol=atol)

@@ -3,14 +3,14 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-06-04 18:26:42
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-16 13:37:49
+# @Last Modified time: 2023-03-30 13:24:03
 
 ''' Utilities to manipulate HOC objects. '''
 
 import numpy as np
 from neuron import h, hclass, nrn
 
-from PySONIC.utils import isWithin, logger
+from PySONIC.utils import isWithin, logger, npformat
 from ..constants import *
 from ..utils import seriesGeq
 
@@ -18,7 +18,7 @@ from ..utils import seriesGeq
 class Probe(hclass(h.Vector)):
     ''' Interface to a Hoc vector recording a particular variable. '''
 
-    def __new__(cls, variable, factor=1.):
+    def __new__(cls, *args, **kwargs):
         ''' Instanciation. '''
         return super(Probe, cls).__new__(cls)
 
@@ -146,12 +146,137 @@ class Matrix(hclass(h.Matrix)):
         pass
 
 
+class SquareMatrix(Matrix):
+    ''' Interface to a square matrix object. '''
+
+    def __new__(cls, n):
+        ''' Instanciation. '''
+        return super(SquareMatrix, cls).__new__(cls, n, n)
+
+    def emptyClone(self):
+        ''' Return empty matrix of identical shape. '''
+        return SquareMatrix(self.nRow)
+
+
+class DiagonalMatrix(SquareMatrix):
+    ''' Interface to a diagonal matrix. '''
+
+    def __new__(cls, x):
+        ''' Instanciation. '''
+        return super(DiagonalMatrix, cls).__new__(cls, x.size)
+
+    def __init__(self, x):
+        ''' Initialization.
+
+            :param x: vector used to fill the diagonal.
+        '''
+        self.setdiag(0, h.Vector(x))
+
+
+
+class PointerVector(hclass(h.Vector)):
+    ''' Interface to a pointing vector, i.e. a vector that can "point" toward
+        subsets of other vectors.
+    '''
+
+    def __new__(cls, *args, **kwargs):
+        ''' Instanciation. '''
+        return super(PointerVector, cls).__new__(cls)
+
+    def __init__(self, size):
+        ''' Initialization. '''
+        self.refs = []
+        super().__init__()
+        self.resize(size)
+    
+    def __repr__(self):
+        vals = npformat(np.array(self.to_python()))
+        return f'{self.__class__.__name__}({len(self.refs)} ref{"s" if len(self.refs) > 1 else ""}, x={vals})'
+
+    def setVal(self, i, x):
+        ''' Item setter, adding the difference between the old an new value to all
+            reference vectors with their respective offsets.
+        '''
+        xdiff = x - self.x[i]
+        self.x[i] = x
+        for v, offset in self.refs:
+            v.x[i + offset] = v.x[i + offset] + xdiff
+
+    def addVal(self, i, x):
+        self.setVal(i, self.x[i] + x)
+
+    def addTo(self, v, offset, fac=1):
+        ''' Add the vector to a destination vector with a specific offset and factor. '''
+        for i, x in enumerate(self):
+            v.x[i] = v.x[i] + x * fac
+
+    def addRef(self, v, offset):
+        ''' Add a reference vector to "point" towards. '''
+        assert self.size() + offset <= v.size(), 'exceeds reference dimensions'
+        self.addTo(v, offset)
+        self.refs.append((v, offset))
+
+    def removeRef(self, iref):
+        ''' Remove a reference vector from the list. '''
+        self.addTo(*self.refs[iref], fac=-1)
+        del self.refs[iref]
+
+
+def pointerMatrix(MatrixBase):
+    ''' Interface to a pointing matrix, i.e. a matrix that can "point" toward
+        subsets of other matrices.
+    '''
+
+    class PointerMatrix(MatrixBase):
+
+        def __init__(self, *args, **kwargs):
+            ''' Initialization. '''
+            self.refs = []
+            super().__init__(*args, **kwargs)
+
+        @property
+        def nrefs(self):
+            return len(self.refs)
+
+        def addRef(self, mref, row_offset, col_offset):
+            ''' Add a reference matrix to "point" towards. '''
+            assert self.nRow + row_offset <= mref.nRow, 'exceeds reference dimensions'
+            assert self.nCol + col_offset <= mref.nCol, 'exceeds reference dimensions'
+            self.refs.append((mref, mref.emptyClone(), row_offset, col_offset))
+            self.updateRef(self.nrefs - 1)
+
+        def removeRef(self, iref):
+            ''' Remove a reference matrix. '''
+            mref, mholder, *_ = self.refs[iref]
+            mref.sub(mholder)  # remove old values from ref matrix
+            del self.refs[iref]
+
+        def updateRef(self, iref):
+            ''' Update a reference matrix. '''
+            mref, mholder, row_offset, col_offset = self.refs[iref]
+            mref.sub(mholder)                             # remove old values from ref matrix
+            self.copyTo(mholder, row_offset, col_offset)  # update holder matrix
+            mref.add(mholder)                             # add new values to ref matrix
+
+        def updateRefs(self):
+            ''' Update all reference matrices. '''
+            for i in range(self.nrefs):
+                self.updateRef(i)
+
+        def onFullUpdate(self):
+            self.updateRefs()
+
+    PointerMatrix.__name__ = f'Pointer{MatrixBase.__name__}'
+
+    return PointerMatrix
+
+
 class IClamp(hclass(h.IClamp)):
     ''' IClamp object that takes section with default relative position as input
         and allows setting parameters on creation.
     '''
 
-    def __new__(cls, section, amplitude, x=0.5):
+    def __new__(cls, section, *args, x=0.5):
         ''' Instanciation. '''
         return super(IClamp, cls).__new__(cls, section(x))
 
@@ -684,11 +809,3 @@ def getCustomConnectSection(section_class):
 
 def getAllSecs():
     return list(h.allsec())
-
-
-def printAllSecs():
-    secs = getAllSecs()
-    if len(secs) == 0:
-        print('NO SECTION')
-    else:
-        print('ALL SECTIONS:', ', '.join([str(s) for s in secs]))

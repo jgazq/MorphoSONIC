@@ -3,10 +3,11 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2018-09-26 17:11:28
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-29 18:35:51
+# @Last Modified time: 2023-03-30 11:05:37
 
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 from matplotlib.ticker import FormatStrFormatter
 from scipy import signal
 
@@ -62,7 +63,7 @@ class SectionGroupedTimeSeries(GroupedTimeSeries):
 
 class SectionCompTimeSeries(CompTimeSeries):
     ''' Plot the time evolution of a specific variable across sections, for a specific condition '''
-
+    
     def __init__(self, filepaths, varname, sections):
         self.entry = filepaths[0]
         self.model = None
@@ -110,11 +111,14 @@ def thresholdCurve(fiber, x, thrs, thrs2=None,
                    xname='duration', xfactor=S_TO_US, xunit='s',
                    yname='current', yfactor=1, yunit='A',
                    y2name='charge', y2factor=1, y2unit='C',
-                   scale='log', plot_chr=True, fs=12, colors=None, limits=None, xlimits=None):
+                   scale='log', plot_chr=True, fs=12, colors=None, styles=None, limits=None, xlimits=None):
     if colors is None:
         colors = plt.get_cmap('tab10').colors
+    if styles is None:
+        styles = ['-'] * len(colors)
 
     fig, ax = plt.subplots()
+    sns.despine(ax=ax)
     prefix = si_format(1 / yfactor, space='')[1:]
     ax.set_title(f'{fiber}', fontsize=fs)
     ax.set_xlabel(f'{xname} ({si_format(1 / xfactor, space="")[1:]}{xunit})', fontsize=fs)
@@ -130,7 +134,7 @@ def thresholdCurve(fiber, x, thrs, thrs2=None,
             thrs2 = {k: -v for k, v in thrs2.items()}
     to_add = []
     for i, k in enumerate(thrs.keys()):
-        ax.plot(x * xfactor, thrs[k] * yfactor, label=k, color=colors[i])
+        ax.plot(x * xfactor, thrs[k] * yfactor, styles[i], label=k, color=colors[i])
         if any(np.isnan(thrs[k])):
             ilastnan = np.where(np.isnan(thrs[k]))[0][-1]
             to_add.append((x[ilastnan:ilastnan + 2], thrs[k][ilastnan + 1], colors[i]))
@@ -278,6 +282,7 @@ def plotConvergenceResults(df, inkey, outkeys, rel_eps_thr_Ithr=0.05, rel_eps_th
 def plotFiberXCoords(fiber, fs=12):
     ''' Plot the x coordinates of a fiber model, per section type. '''
     fig, ax = plt.subplots(figsize=(12, 2))
+    sns.despine(ax=ax)
     ax.set_title(f'{fiber} - x-coordinates per section type', fontsize=fs)
     ax.set_xlabel('section mid-point x-coordinate (mm)', fontsize=fs)
     ax.set_ylabel('section type', fontsize=fs)
@@ -294,6 +299,7 @@ def plotFiberXCoords(fiber, fs=12):
 def plotFieldDistribution(fiber, source, fs=12):
     ''' Plot a source's field distribution over a fiber, per section type. '''
     fig, ax = plt.subplots(figsize=(12, 3))
+    sns.despine(ax=ax)
     ax.set_title(f'{fiber} - field distribution from {source}', fontsize=fs)
     ax.set_xlabel('section mid-point x-coordinate (mm)', fontsize=fs)
     if isinstance(source, (AcousticSource)):
@@ -342,6 +348,7 @@ def plotMRGLookups(fiberD_range=None, interp_methods=None, fs=12):
     # Create figure backbone
     nouts = len(mrg_lkp.outputs)
     fig, axes = plt.subplots(1, nouts, figsize=(nouts * 3, 2.5))
+    sns.despine(fig=fig)
     for ax, k in zip(axes, mrg_lkp.keys()):
         yunit = '' if k == 'nlayers' else '(um)'
         ax.set_xlabel('fiber diameter (um)', fontsize=fs)
@@ -362,7 +369,9 @@ def plotMRGLookups(fiberD_range=None, interp_methods=None, fs=12):
     # Set lookup interpolation method back to default
     mrg_lkp.interp_method = default_method
 
-    axes[0].legend(frameon=False)
+    # Add legend and title
+    axes[-1].legend()
+    sns.move_legend(axes[-1], 'upper left', bbox_to_anchor=(1, 1), frameon=False)
     title = fig.suptitle(f'MRG morphological parameters', fontsize=fs)
     fig.tight_layout()
     title.set_y(title._y + 0.03)
@@ -425,6 +434,7 @@ def plotCVvsDiameter(diams, cv_dict, fs=14):
         along with linear fits.
     '''
     fig, ax = plt.subplots()
+    sns.despine(ax=ax)
     ax.set_xlabel('diameter (um)', fontsize=fs)
     ax.set_ylabel('conduction velocity (m/s)', fontsize=fs)
     for item in ax.get_xticklabels() + ax.get_yticklabels():

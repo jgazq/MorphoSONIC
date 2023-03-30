@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-03-30 21:40:57
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2021-06-22 15:18:44
+# @Last Modified time: 2023-03-30 14:12:05
 
 import numpy as np
 
@@ -336,8 +336,10 @@ def addSonicFeatures(Base):
 
         @network.setter
         def network(self, value):
+            # If network already exists, clear its underlying HOC objects
             if hasattr(self, '_network') and isinstance(self._network, HybridNetwork):
                 self._network.clear()
+            # Check that value is a HybridNetwork instance, and assign it to class
             if value is not None:
                 if isinstance(value, HybridNetwork):
                     logger.debug(f'initialized {value}')
@@ -443,11 +445,6 @@ def addSonicFeatures(Base):
                 is_dynamic_cm=is_dynamic_cm,
                 use_explicit_iax=self.use_explicit_iax)
             super().setDrives(source)
-
-        # def needsFixedTimeStep(self, source):
-        #     if isinstance(source, AcousticSource):
-        #         return True
-        #     return super().needsFixedTimeStep(source)
 
         @property
         def Aranges(self):

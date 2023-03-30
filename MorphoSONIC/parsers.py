@@ -3,8 +3,9 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-08-18 21:14:43
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-29 18:40:38
+# @Last Modified time: 2023-03-29 21:10:27
 
+import re
 import matplotlib.pyplot as plt
 from PySONIC.parsers import *
 
@@ -15,9 +16,12 @@ from .constants import *
 
 class SpatiallyExtendedParser(Parser):
 
+    secid_pattern = '([a-zA-Z]+)(?:([0-9]+))?'  # Regexp section ID pattern
+
     def __init__(self):
         super().__init__()
         self.addSection()
+        self.addWiring()
 
     def addResistivity(self):
         self.add_argument(
@@ -35,6 +39,11 @@ class SpatiallyExtendedParser(Parser):
         if not isIterable(args['secid']):
             args['secid'] = [args['secid']]
         return args
+    
+    def addWiring(self):
+        self.add_argument(
+            '--wiring', type=str, default='sonic', choices=('sonic', 'default'), 
+            help='Internal wiring scheme')
 
     def parse(self, args=None):
         if args is None:
@@ -44,9 +53,28 @@ class SpatiallyExtendedParser(Parser):
     @staticmethod
     def parseSimInputs(args):
         return [args[k] for k in ['rs']]
+    
+    @classmethod
+    def parse_section_type(cls, sec_id):
+        ''' Parse section type from its id '''
+        if isIterable(sec_id):
+            return [cls.parse_section_type(x) for x in sec_id]
+        mo = re.match(cls.secid_pattern, sec_id)
+        if mo is None:
+            raise ValueError(f'"{sec_id}" does not match section ID pattern: {cls.secid_pattern}')
+        return mo.group(1)
 
-    @staticmethod
-    def parsePlot(args, outputs):
+    @classmethod    
+    def parse_section_dict(cls, seclist):
+        ''' Parse raw sections list into model-relevant sections dictionary '''
+        sectypes = cls.parse_section_type(seclist)
+        secdict = {k: [] for k in dict.fromkeys(sectypes)}
+        for secid, stype in zip(seclist, sectypes):
+            secdict[stype].append(secid)
+        return secdict
+    
+    @classmethod
+    def parsePlot(cls, args, outputs):
         render_args = {}
         if 'spikes' in args:
             render_args['spikes'] = args['spikes']
@@ -60,14 +88,45 @@ class SpatiallyExtendedParser(Parser):
                 render_args[key] = args[key]
             if render_args['cmap'] is None:
                 del render_args['cmap']
+            # For each simulation output 
             for output in outputs:
+                # Parse section dict from output
+                secdict = cls.parse_section_dict(list(output[0].keys()))
+                sections = args['section']
+                # Filter section dict based on section selection
+                if sections == ['all']:
+                    filtered_secdict = secdict
+                else:
+                    filtered_secdict = {}
+                    for sec in sections:
+                        if sec in secdict:
+                            filtered_secdict[sec] = secdict[sec]
+                        else:
+                            stype = cls.parse_section_type(sec)
+                            if sec not in secdict[stype]:
+                                raise ValueError(f'section "{sec}" not found in output')
+                            if stype not in filtered_secdict:
+                                filtered_secdict[stype] = [sec]
+                            else:
+                                filtered_secdict[stype].append(sec)
+                filtered_secdict = {k: sorted(v) for k, v in filtered_secdict.items()}
+                for k, v in filtered_secdict.items():
+                    if len(v) < 2:
+                        raise ValueError(f'at least 2 {k} sections must be provided for a comparative plot')
+
+                # Generate 1 comparative plot per plot variable
                 for pltvar in args['plot']:
-                    sections = args['section']
-                    if sections == ['all']:
-                        sections = list(output[0].keys())
-                    comp_plot = SectionCompTimeSeries([output], pltvar, sections)
-                    comp_plot.render(**render_args)
+                    for sectype, seclist in filtered_secdict.items():
+                        # Adjust colormap based on completeness of section list
+                        if len(seclist) < len(secdict[sectype]):
+                            render_args['cmap'] = 'viridis'
+                        else:
+                            render_args.pop('cmap', None) 
+                        comp_plot = SectionCompTimeSeries([output], pltvar, seclist)
+                        comp_plot.render(**render_args)
         else:
+            if args['section'] == ['all']:
+                raise ValueError('"--section all" not available in standard plotting mode. Try adding "--compare" to enable comparative mode')
             for key in args['section']:
                 scheme_plot = SectionGroupedTimeSeries(key, outputs, pltscheme=args['pltscheme'])
                 scheme_plot.render(**render_args)
@@ -123,6 +182,8 @@ class FiberParser(SpatiallyExtendedParser):
     def parse(self, args=None):
         args = super().parse(args=args)
         args['type'] = [models_dict[model_key] for model_key in args['type']]
+        if args['wiring'] == 'default':
+            args['type'] = [fclass.__original__ for fclass in args['type']]
         for key in ['fiberD']:
             if len(args[key]) > 1 or args[key][0] is not None:
                 args[key] = self.parse2array(args, key, factor=self.factors[key])
