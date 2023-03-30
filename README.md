@@ -32,9 +32,9 @@ The `sources` module defines a variety of analytical models of electrical and ac
 - `PlanarDiskTransducerSource` for distributed acoustic perturbation resulting from sonication by a distant planar acoustic transducer.
 - `GaussianAcousticSource` for a distributed acoustic perturbation defined by a Gaussian distribution
 
-### Membrane mechanisms (NMODL)
+## Membrane mechanisms (NMODL)
 
-Most point-neuron models defined in the `PySONIC` package have been translated to equivalent membrane mechanisms in **NMODL** language. Please refer to the `PySONIC` package for a list of these membrane mechanisms.
+Most point-neuron models defined in the `PySONIC` package have been translated to equivalent membrane mechanisms in **NMODL** language, stored as MOD files in the `nmodl` folder. If you implemented additional point-neuron models and wish to translate them into MOD files, use the `generate_mod_file.py` script.
 
 ## Other modules
 
