@@ -6,33 +6,37 @@ This package expands features from the `PySONIC` package (https://github.com/tjj
 
 # Content of repository
 
-### Single-compartment (node) models
+## Models
 
-The package contains a `Node` class that provides a NEURON wrapper around the models defined in the `PySONIC` package. This class defines a generic section object with a specific membrane dynamics that can be simulated with both punctual electrical and acoustic drives.
+The `models` module defines a variety of neuron models:
 
-### Multi-compartment (spatially-extended) models
+- the `Node` class that provides a NEURON wrapper around the point-neuron models defined in the `PySONIC` package, and can be simulated with both punctual electrical and acoustic drives.
+- the `RadialModel` class defines a **nanoscale radially-symmetric model** with central and peripheral compartments. It can be used to model the coupling between an "ultrasound-responsive" sonophore and an "ultrasound-resistant" surrounding membrane (see `surroundedSonophore` function). As this model is radially symmetric, some adaptation was needed in order to represent it within the *NEURON* environment (check [this link](docs/NEURON_radial_geometry.md) for more details).
 
-The package also contains several classes defining multi-compartmental model expansions, at various spatial scales.
-
-At the *nanometer scale*, a `RadialModel` class that simulate the behavior of a **nanoscale radially-symmetric model** with central and peripheral compartments. It can be used to model the coupling between an "ultrasound-responsive" sonophore and an "ultrasound-resistant" surrounding membrane (see `surroundedSonophore` function. As this model is radially symmetric, some adaptation was needed in order to represent it within the *NEURON* environment (check [this link](docs/NEURON_radial_geometry.md) for more details).
-
-At the *morphological scale*, several models of **unmyelinated and myelinated peripheral fibers** are implemented:
+The module also contains morphologically-structured models of **unmyelinated and myelinated peripheral fibers**:
 - `SennFiber` implements a spatially-extended nonlinear node (SENN) myelinated fiber model, as defined in Reilly 1985.
 - `SweeneyFiber` implements the SENN model variant defined in Sweeney 1987.
 - `MRGFiber` implements the double-cable myelinated fiber model defined as in McIntyre 2002.
 - `UnmyelinatedFiber` implements an unmyelinated fiber model defined as in Sundt 2015.
 
-Those fiber models can be simulate upon stimulation by different types of **source** objects:
+By default, multi-compartment models are wired using the conventional *NEURON* cable representation that assumes a voltage-casted electrical system and a constant membrane capacitance throughout simulations. This wiring strategy is incompatible with the SONIC model, where both these assumptions are violated. Therefore, to enable the simulation of these models under acoustic perturbations, we defined an alternative wiring scheme that is intrinsically compatible with the SONIC model and can be readily substituted to *NEURON*'s default wiring scheme (see [2] for more details). This substitution is achieved by assigning a simple decorator (`addSonicFeatures`) to each model class.
+
+## Sources
+
+The `sources` module defines a variety of analytical models of electrical and acoustic exposure distributions that can be used to stimulate spatially-extended models:
+
 - `IntracellularCurrent` for local intracellular current injection at a specific section.
 - `ExtracellularCurrent` for distributed voltage perturbation resulting from current injection at a distant point-source electrode.
+- `GaussianVoltageSource` for a distributed voltage perturbation defined by a Gaussian distribution
 - `SectionAcousticSource` for local acoustic perturbation at a specific section.
 - `PlanarDiskTransducerSource` for distributed acoustic perturbation resulting from sonication by a distant planar acoustic transducer.
+- `GaussianAcousticSource` for a distributed acoustic perturbation defined by a Gaussian distribution
 
 ### Membrane mechanisms (NMODL)
 
 Most point-neuron models defined in the `PySONIC` package have been translated to equivalent membrane mechanisms in **NMODL** language. Please refer to the `PySONIC` package for a list of these membrane mechanisms.
 
-### Other modules
+## Other modules
 
 - `pyhoc`: defines utilities for Python-NEURON communication
 - `pymodl`: defines a parser to translate point-neuron models defined in Python into NMODL membrane mechanisms
