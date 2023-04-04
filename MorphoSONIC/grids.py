@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-02-04 21:24:12
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2020-03-06 09:06:09
+# @Last Modified time: 2023-04-04 12:56:40
 
 import abc
 import numpy as np
@@ -80,7 +80,7 @@ class CircleGridConcentric(CircleGrid):
     def nlayers(self):
         ''' # Number of concentric layers. '''
         num = 3 * np.pi - 1 + np.sqrt(9 * np.pi**2 - 14 * np.pi + 1 + 4 * np.pi * self.m)
-        return np.int(num / (2 * np.pi))
+        return int(num / (2 * np.pi))
 
     def generate(self):
         radius = [0]
@@ -113,12 +113,13 @@ class CircleGridSunflower(CircleGrid):
         return self.r * np.vstack((x, y))
 
 
+grid_classes = {
+    'square': CircleGridSquare,
+    'concentric': CircleGridConcentric,
+    'sunflower': CircleGridSunflower
+}
+
 def getCircle2DGrid(r, m, dist_type):
-    grid_classes = {
-        'square': CircleGridSquare,
-        'concentric': CircleGridConcentric,
-        'sunflower': CircleGridSunflower
-    }
     try:
         return grid_classes[dist_type](r, m).generate()
     except KeyError:

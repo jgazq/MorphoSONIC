@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-08-23 09:43:18
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2022-09-19 11:21:16
+# @Last Modified time: 2023-04-04 13:01:23
 
 import numpy as np
 
@@ -310,6 +310,10 @@ class PlanarDiskTransducerSource(ExtracellularSource, AcousticSource):
     def area(self):
         ''' Transducer surface area. '''
         return np.pi * self.r**2
+    
+    def get_default_nsources(self):
+        ''' Get number of point sources based on radiating surface area and defautl source density '''
+        return int(np.ceil(self.source_density * self.area()))
 
     def relNormalAxisAmp(self, z):
         ''' Compute the relative acoustic amplitude at a given coordinate along
@@ -339,7 +343,7 @@ class PlanarDiskTransducerSource(ExtracellularSource, AcousticSource):
             :param d: type of point sources distribution used
         '''
         if m is None:
-            m = int(np.ceil(self.source_density * self.area()))
+            m = self.get_default_nsources()
         return getCircle2DGrid(self.r, m, d)
 
     def getAcousticPressure(self, dmat):
