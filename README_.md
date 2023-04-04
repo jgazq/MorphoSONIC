@@ -19,7 +19,9 @@ The module also contains morphologically-structured models of **unmyelinated and
 - `MRGFiber` implements the double-cable myelinated fiber model defined as in McIntyre 2002.
 - `UnmyelinatedFiber` implements an unmyelinated fiber model defined as in Sundt 2015.
 
-By default, multi-compartment models are wired using the conventional *NEURON* cable representation that assumes a voltage-casted electrical system and a constant membrane capacitance throughout simulations. This wiring strategy is incompatible with the SONIC model, where both these assumptions are violated. Therefore, to enable the simulation of these models under acoustic perturbations, we defined an alternative wiring scheme that is intrinsically compatible with the SONIC model and can be readily substituted to *NEURON*'s default wiring scheme (see [2] for more details). This substitution is achieved by assigning a simple decorator (`addSonicFeatures`) to each model class.
+## `@addSonicFeatures` decorator
+
+By default, multi-compartment models are wired using the conventional *NEURON* cable representation that assumes a voltage-casted electrical system and a constant membrane capacitance throughout simulations. This wiring strategy is incompatible with the SONIC model, where both these assumptions are violated. Therefore, to enable the simulation of these models under acoustic perturbations, we defined an alternative wiring scheme that is intrinsically compatible with the SONIC model and can be readily substituted to *NEURON*'s default wiring scheme (see [2] for more details). This substitution is achieved by assigning a simple decorator (`@addSonicFeatures`) to each model class.
 
 ## Sources
 
@@ -34,7 +36,7 @@ The `sources` module defines a variety of analytical models of electrical and ac
 
 ## Membrane mechanisms (NMODL)
 
-Most point-neuron models defined in the `PySONIC` package have been translated to equivalent membrane mechanisms in **NMODL** language, stored as MOD files in the `nmodl` folder. If you implemented additional point-neuron models and wish to translate them into MOD files, use the `generate_mod_file.py` script.
+`MorphoSONIC` leverages *NEURON*'s architecture to define a range of membrane mechanisms that can be independently assigned to any morphological section. These mechanisms are each implemented in a specific NMODL (`.mod`) file, stored in the `nmodl` subfolder. Each mechanism defines a set of parameters and equations governing the membrane dynamics of the sections it is attached to. To enable compatibility with the SONIC model, key functions used in  these equations are defined as *function tables*, i.e. 2-dimensional tables dynamically populated at runtime from SONIC lookup tables. Most point-neuron models defined in the `PySONIC` package have been translated to equivalent `mod` files so they can be readily used here. If you have implemented additional point-neuron models and wish to translate them into MOD files, use the `generate_mod_file.py` script.
 
 ## Other modules
 
