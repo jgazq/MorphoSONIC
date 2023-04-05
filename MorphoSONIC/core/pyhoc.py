@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2019-06-04 18:26:42
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-30 13:24:03
+# @Last Modified time: 2023-04-05 16:28:49
 
 ''' Utilities to manipulate HOC objects. '''
 
@@ -13,6 +13,22 @@ from neuron import h, hclass, nrn
 from PySONIC.utils import isWithin, logger, npformat
 from ..constants import *
 from ..utils import seriesGeq
+
+
+def getNetStim(freq, start=0., number=1e9):
+    '''
+    Wrapper around NetStim allowing to set parameters in 1-liner.
+    
+    :param freq: spiking frequency of pre-synaptic drive (Hz)
+    :param start (optional): start time (s)
+    :param number (optional): total number of pre-synaptic spikes
+    :return: NetStim object
+    '''
+    stim = h.NetStim()
+    stim.number = number
+    stim.start = start * S_TO_MS  # ms
+    stim.interval = S_TO_MS / freq  # ms
+    return stim
 
 
 class Probe(hclass(h.Vector)):

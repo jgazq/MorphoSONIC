@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-17 11:59:50
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-27 22:49:55
+# @Last Modified time: 2023-04-05 16:28:19
 
 import logging
 import numpy as np
@@ -17,6 +17,7 @@ from PySONIC.core import ElectricDrive, PulsedProtocol
 from MorphoSONIC.core.synapses import *
 from MorphoSONIC.models import Node
 from MorphoSONIC.constants import *
+from MorphoSONIC.core import getNetStim
 
 logger.setLevel(logging.INFO)
 
@@ -26,10 +27,7 @@ def getSynapseData(syn_model, sf, syn_delay=1., tstop=4.):
     logger.info(f'Simulating {name} synapse with {sf:.0f} Hz input')
 
     # Define input cell: artificial spike generator
-    stim = h.NetStim()
-    stim.number = 1e3
-    stim.start = 0.
-    stim.interval = S_TO_MS / sf
+    stim = getNetStim(sf)
 
     # Define output cell: RS node
     node = Node(getPointNeuron('RS'))
