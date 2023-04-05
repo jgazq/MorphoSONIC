@@ -10,7 +10,7 @@ This package expands features from the `PySONIC` package (https://github.com/tjj
 
 The `models` module defines a variety of neuron models:
 
-- the `Node` class that provides a NEURON wrapper around the point-neuron models defined in the `PySONIC` package, and can be simulated with both punctual electrical and acoustic drives.
+- the `Node` class that provides a *NEURON* wrapper around the point-neuron models defined in the `PySONIC` package, and can be simulated with both punctual electrical and acoustic drives.
 - the `RadialModel` class defines a **nanoscale radially-symmetric model** with central and peripheral compartments. It can be used to model the coupling between an "ultrasound-responsive" sonophore and an "ultrasound-resistant" surrounding membrane (see `surroundedSonophore` function). As this model is radially symmetric, some adaptation was needed in order to represent it within the *NEURON* environment (check [this link](docs/NEURON_radial_geometry.md) for more details).
 
 The module also contains morphologically-structured models of **unmyelinated and myelinated peripheral fibers**:
@@ -21,7 +21,17 @@ The module also contains morphologically-structured models of **unmyelinated and
 
 ## `@addSonicFeatures` decorator
 
-By default, multi-compartment models are wired using the conventional *NEURON* cable representation that assumes a voltage-casted electrical system and a constant membrane capacitance throughout simulations. This wiring strategy is incompatible with the SONIC model, where both these assumptions are violated. Therefore, to enable the simulation of these models under acoustic perturbations, we defined an alternative wiring scheme that is intrinsically compatible with the SONIC model and can be readily substituted to *NEURON*'s default wiring scheme (see [2] for more details). This substitution is achieved by assigning a simple decorator (`@addSonicFeatures`) to each model class.
+One of the main advantages of the *NEURON* simulation environment is the presence of optimized numerical integration pipelines that are completely abstracted from the model definition. However, this abstraction imposes a default cable representation for models implemented in *NEURON*, one that assumes (1) a voltage-casted electrical system and (2) a constant membrane capacitance throughout simulations. Unfortunately, both these assumptions are incompatible with the underlying equations of the SONIC model. 
+
+Therefore, to enable simulations of models incorporating the SONIC paradigm in *NEURON*, we defined an alternative cable representation that is intrinsically compatible with the SONIC model and can be substituted to *NEURON*'s default representation upon model construction (see [2] for more details). In practice, this substitution is achieved by assigning a simple decorator (`@addSonicFeatures`) to the model class, such that one can easily switch between the default and SONIC-compatible implementations. Importantly, the SONIC-compatible version can also be used for model simulations with "conventional" electrical stimuli.
+
+## Custom membrane mechanisms
+
+`MorphoSONIC` leverages *NEURON*'s architecture to define a range of membrane mechanisms that can be independently assigned to any morphological section. These mechanisms are each implemented in a specific NMODL (`.mod`) file, stored in the `nmodl` subfolder. Each mechanism defines a set of parameters and equations governing the membrane dynamics of the sections it is attached to. 
+
+These equations often involve the use of voltage-dependent rate constants that are typically defined by analytical functions in the `mod` file. To enable compatibility with the SONIC model, these analytical functions have been substituted by *function tables*, i.e. 2-dimensional tables dynamically populated at runtime, either from SONIC lookup tables or by simple interpolation of the original analyical functions of the model. 
+
+Most point-neuron models defined in the `PySONIC` package have been translated to equivalent `mod` files so they can be readily used here. If you have implemented additional point-neuron models and wish to translate them into MOD files, use the `generate_mod_file.py` script.
 
 ## Sources
 
@@ -34,9 +44,6 @@ The `sources` module defines a variety of analytical models of electrical and ac
 - `PlanarDiskTransducerSource` for distributed acoustic perturbation resulting from sonication by a distant planar acoustic transducer.
 - `GaussianAcousticSource` for a distributed acoustic perturbation defined by a Gaussian distribution
 
-## Membrane mechanisms (NMODL)
-
-`MorphoSONIC` leverages *NEURON*'s architecture to define a range of membrane mechanisms that can be independently assigned to any morphological section. These mechanisms are each implemented in a specific NMODL (`.mod`) file, stored in the `nmodl` subfolder. Each mechanism defines a set of parameters and equations governing the membrane dynamics of the sections it is attached to. To enable compatibility with the SONIC model, key functions used in  these equations are defined as *function tables*, i.e. 2-dimensional tables dynamically populated at runtime from SONIC lookup tables. Most point-neuron models defined in the `PySONIC` package have been translated to equivalent `mod` files so they can be readily used here. If you have implemented additional point-neuron models and wish to translate them into MOD files, use the `generate_mod_file.py` script.
 
 ## Other modules
 
