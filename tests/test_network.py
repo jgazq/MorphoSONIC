@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 19:51:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-28 09:55:32
+# @Last Modified time: 2023-04-05 15:50:02
 
 import logging
 
@@ -13,7 +13,7 @@ from PySONIC.test import TestBase
 from PySONIC.utils import logger
 
 from MorphoSONIC.plt import SectionCompTimeSeries
-from MorphoSONIC.models import DrivenNode, NodePopulation, NodeNetwork, CorticalNodeNetwork
+from MorphoSONIC.models import Node, NodePopulation, NodeNetwork, CorticalNodeNetwork
 from MorphoSONIC.parsers import TestNetworkParser
 
 ''' Create and simulate a small network of nodes. '''
@@ -75,8 +75,10 @@ class TestNetwork(TestBase):
                         for k, v in CorticalNodeNetwork.thalamic_drives.items()}  # mA/m2
 
         # Corresponding Node models, with appropriate driving currents
-        self.nodes = {k: DrivenNode(v, self.idrives[k], a=self.a, fs=self.fs)
-                      for k, v in self.pneurons.items()}
+        self.nodes = {}
+        for k, v in self.pneurons.items():
+            self.nodes[k] = Node(v, a=self.a, fs=self.fs)
+            self.nodes[k].setConstantDrive(self.idrives[k])
     
         # Pulsing parameters
         tstart = 1.  # s
@@ -117,10 +119,10 @@ class TestNetwork(TestBase):
         ''' US stimulation only '''
         logger.warning('US only')
         for k in self.nodes.keys():
-            self.nodes[k].disableDrive()
+            self.nodes[k].disableConstantDrive()
         self.simulate(self.nodes, self.US_drive, connect)
         for k in self.nodes.keys():
-            self.nodes[k].enableDrive()
+            self.nodes[k].enableConstantDrive()
 
     def test_combined(self, connect):
         ''' US stimulation with thalamic drive '''

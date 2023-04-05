@@ -2,7 +2,7 @@
 # @Author: Theo Lemaire
 # @Date:   2023-03-23 11:53:33
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-28 17:07:32
+# @Last Modified time: 2023-04-05 11:19:05
 
 import logging
 import time
@@ -22,7 +22,7 @@ parser = ArgumentParser()
 parser.add_argument(
     '-n', '--nnodes', type=int, default=48, help='network size')
 parser.add_argument(
-    '--disconnect', default=False, action='store_true', 
+    '-d', '--disconnect', default=False, action='store_true', 
     help='run simulation in disconnected network')
 args = parser.parse_args()
 

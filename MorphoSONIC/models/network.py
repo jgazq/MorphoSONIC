@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2020-01-13 20:15:35
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-28 19:00:20
+# @Last Modified time: 2023-04-05 15:48:31
 
 from itertools import product
 import random
@@ -24,7 +24,7 @@ from PySONIC.plt import TimeSeriesPlot
 from PySONIC.utils import add_indent, isIterable
 
 from ..core.pyhoc import *
-from . import Node, DrivenNode
+from . import Node
 from ..core import NeuronModel
 from ..core.synapses import *
 
@@ -39,8 +39,7 @@ class NodePopulation(NeuronModel):
     nodeid_pattern = '([a-zA-Z]+)(?:([0-9]+))?'  # Regexp node ID pattern
     node_constructor_dict = {
         'ESTIM': (Node, [], []),
-        'ASTIM': (Node, [], ['a', 'fs']),
-        'DASTIM': (DrivenNode, ['Idrive'], ['a', 'fs']),
+        'ASTIM': (Node, [], ['a', 'fs'])
     }
 
     def __init__(self, nodes):
@@ -852,7 +851,9 @@ class SmartNodeNetwork(NodeNetwork):
             Idrive = drives.get(k, 0.)  # nA
             idrive = Idrive * 1e-6 / pneurons[k].area  # mA/m2
             for i in range(n):
-                self.nodesdict[k][f'{k}{fmt.format(i)}'] = DrivenNode(pneurons[k], idrive, **node_kwargs)
+                self.nodesdict[k][f'{k}{fmt.format(i)}'] = Node(pneurons[k], **node_kwargs)
+                if idrive != 0:
+                    self.nodesdict[k][f'{k}{fmt.format(i)}'].setConstantDrive(idrive)
         logger.info(f'instantiated {sum(self.ncells.values())} nodes ({self.str_node_count()})')
         
         # Generate connections lists structured by connection types

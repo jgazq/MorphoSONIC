@@ -3,7 +3,7 @@
 # @Email: theo.lemaire@epfl.ch
 # @Date:   2018-08-27 09:23:32
 # @Last Modified by:   Theo Lemaire
-# @Last Modified time: 2023-03-24 18:19:40
+# @Last Modified time: 2023-04-05 15:51:23
 
 import numpy as np
 from neuron import h
@@ -28,7 +28,10 @@ class Node(NeuronModel):
         super().__init__(**kwargs)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.pneuron})'
+        s = f'{self.__class__.__name__}({self.pneuron}'
+        if self.Idrive != 0.:
+            s = f'{s}, Idrive = {self.Idrive:.2f} mA/m2'
+        return f'{s})'
 
     def createSections(self):
         self.section = self.createSection(
@@ -64,7 +67,10 @@ class Node(NeuronModel):
 
     @property
     def meta(self):
-        return self.pneuron.meta
+        meta = self.pneuron.meta
+        if self.Idrive != 0.:
+            meta['Idrive'] = self.Idrive
+        return meta
 
     def desc(self, meta):
         return f'{self}: simulation @ {meta["drive"].desc}, {meta["pp"].desc}'
@@ -85,6 +91,51 @@ class Node(NeuronModel):
             :param drive: electric drive object.
         '''
         return IClamp(self.section, self.currentDensityToCurrent(drive.I))
+
+    @property
+    def Idrive(self):
+        ''' Idrive getter that returns 0 if undefined '''
+        try:
+            return self._Idrive
+        except AttributeError:
+            return 0.
+    
+    def setConstantDrive(self, value):
+        ''' 
+        Set a constant driving current.
+        
+        :param value: current density (mA/m2)
+        '''
+        self._Idrive = value
+        # Convert current density (in mA/m2) to injected current (in nA)
+        Iinj = self.currentDensityToCurrent(value)
+        # Create and activate IClamp object if it does not exist already
+        if not hasattr(self, 'iclamp') or self.iclamp is None:
+            self.idrive_clamp = IClamp(self.section, Iinj)
+            self.idrive_clamp.set(1)
+        # Otherwise, update amplitude
+        else:
+            self.idrive_clamp.amp = Iinj
+    
+    def enableConstantDrive(self):
+        ''' Enable constant driving current '''
+        if self.Idrive == 0.:
+            logger.warning('no constant driving current assigned -> ignoring')
+        self.idrive_clamp.set(1)
+    
+    def disableConstantDrive(self):
+        if self.Idrive == 0.:
+            logger.warning('no constant driving current assigned -> ignoring')
+        self.idrive_clamp.set(0)
+    
+    def clear(self):
+        self.idrive_clamp = None
+        super().clear()
+    
+    def construct(self):
+        super().construct()
+        if self.Idrive != 0:
+            self.setConstantDrive(self.Idrive)
 
     @property
     def drive_funcs(self):
@@ -118,6 +169,8 @@ class Node(NeuronModel):
 
     def filecodes(self, *args):
         codes = self.pneuron.filecodes(*args)
+        if self.Idrive != 0.:
+            codes['Idrive'] = f'Idrive{self.Idrive:.1f}mAm2'
         codes['method'] = 'NEURON'
         return codes
 
@@ -140,69 +193,6 @@ class Node(NeuronModel):
     def getSpikeTimes(self):
         ''' Extract detect spike times (in s) as a numpy array '''
         return np.array(self.aptimes.to_python()) * 1e-3
-
-
-@addSonicFeatures
-class DrivenNode(Node.__original__):
-    ''' Node model with constant driving current  '''
-
-    def __init__(self, pneuron, Idrive, *args, **kwargs):
-        ''' Initialization.
-
-            :param pneuron: point-neuron model
-            :param Idrive: intracellular driving current (mA/m2)
-        '''
-        super().__init__(pneuron, *args, **kwargs)
-        self.Idrive = Idrive
-    
-    @property
-    def Idrive(self):
-        ''' Idrive getter '''
-        try:
-            return self._Idrive
-        except AttributeError:
-            return 0.
-    
-    @Idrive.setter
-    def Idrive(self, value):
-        ''' Idrive setter '''
-        # Convert current density (in mA/m2) to injected current (in nA)
-        Iinj = self.currentDensityToCurrent(value)
-        # Create and activate IClamp object if it does not exist already
-        if not hasattr(self, 'iclamp') or self.iclamp is None:
-            self.iclamp = IClamp(self.section, Iinj)
-            self.iclamp.set(1)
-        # Otherwise, update amplitude
-        else:
-            self.iclamp.amp = Iinj
-    
-    def enableDrive(self):
-        self.iclamp.set(1)
-    
-    def disableDrive(self):
-        self.iclamp.set(0)
-
-    def clear(self):
-        self.iclamp = None
-        super().clear()
-    
-    def construct(self):
-        super().construct()
-        self.Idrive = self.Idrive
-
-    def __repr__(self):
-        return super().__repr__()[:-1] + f', Idrive = {self.Idrive:.2f} mA/m2)'
-
-    def filecodes(self, *args):
-        codes = Node.filecodes(self, *args)
-        codes['Idrive'] = f'Idrive{self.Idrive:.1f}mAm2'
-        return codes
-
-    @property
-    def meta(self):
-        meta = super().meta
-        meta['Idrive'] = self.Idrive
-        return meta
 
 
 @addSonicFeatures
