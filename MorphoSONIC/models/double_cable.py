@@ -33,7 +33,7 @@ class MRGFiber(FiberNeuronModel):
     ''' Generic double-cable, myelinated fiber model based on McIntyre 2002, extended
         to allow use with any fiber diameter.
 
-        Refereence:
+        Reference:
         *McIntyre, C.C., Richardson, A.G., and Grill, W.M. (2002). Modeling the
         excitability of mammalian nerve fibers: influence of afterpotentials on
         the recovery cycle. J. Neurophysiol. 87, 995–1006.*

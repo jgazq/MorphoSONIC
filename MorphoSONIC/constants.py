@@ -62,3 +62,6 @@ MIN_FIBERL_FWHM_RATIO = 2.0  # minimal fiber length compared to gaussian full-wi
 
 # Timeseries
 NTRACES_MAX = 30  # max number of traces to be displayed simulatanously
+
+#added by Joaquin
+mech_mapping = {'Ca':'Ca', 'CaHVA':'Ca_HVA', 'CaLVAst':'Ca_LVAst', 'CaDynamicsE2':'CaDynamics_E2', 'Ih':'Ih', 'Im':'Im', 'KPst':'K_Pst', 'KTst':'K_Tst', 'KdShu2007':'KdShu2007', 'NapEt2':'Nap_Et2', 'NaTat':'NaTa_t', 'NaTs2t':'NaTs2_t', 'ProbAMPANMDAEMS':'ProbAMPANMDA_EMS', 'ProbGABAABEMS':'ProbGABAAB_EMS', 'SKE2':'SK_E2', 'SKv31':'SKv3_1', 'StochKv':'StochKv', 'xtra':'xtra'}

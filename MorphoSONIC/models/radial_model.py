@@ -107,6 +107,9 @@ class RadialModel(SpatiallyExtendedNeuronModel):
         del self.center
         del self.periphery
 
+    def clearSections(self): #added by Joa, this needed to be implemented??
+        self.clear()
+
     def createSections(self):
         ''' Create morphological sections. '''
         self.center = self.createSection(

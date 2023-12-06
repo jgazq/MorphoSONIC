@@ -73,7 +73,7 @@ class NmodlTranslator(PointNeuronTranslator):
         parsed_lambda_dict = super().parseLambdaDict(
             pclass_method(),
             lambda *args: self.translateExpr(*args, method_name=pclass_method_name))
-        for k in parsed_lambda_dict.keys():
+        for k in list(parsed_lambda_dict.keys()): #changed by Joa
             parsed_lambda_dict[self.translateState(k)] = parsed_lambda_dict.pop(k)
         if logger.getEffectiveLevel() <= logging.DEBUG:
             pprint.PrettyPrinter(indent=4).pprint(parsed_lambda_dict)

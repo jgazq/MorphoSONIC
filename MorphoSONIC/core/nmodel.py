@@ -481,7 +481,15 @@ class NeuronModel(metaclass=abc.ABCMeta):
         assert yref.size() == ny, dims_not_matching.format(yref.size(), '2nd', nx)
 
         # Get the HOC function that fills in a specific FUNCTION_TABLE in a mechanism
-        fillTable = getattr(h, f'table_{fname}_{mechname}')
+        if 'real' in mechname and 'neuron' in mechname:
+            if fname == 'V':
+                print(f'table_{fname}_K_Pst')
+                fillTable = getattr(h, f'table_{fname}_K_Pst') #this assumes that the mechanism K_Pst is always present in the chosen cell
+            else:
+                print(f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
+                fillTable = getattr(h, f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
+        else:
+            fillTable = getattr(h, f'table_{fname}_{mechname}')
 
         # Call function
         fillTable(matrix._ref_x[0][0], nx, xref._ref_x[0], ny, yref._ref_x[0])
@@ -533,7 +541,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
         probes = self.section.setProbes()
 
         # Set drive and integrate model
-        self.setDrive(drive)
+        self.setDrive(drive) #added by Joaquin: this function is not defined (yet) (simulate in SENN is redefined and uses setDrives which is only defined in the SENN class)
         self.integrate(pp, dt, atol)
         self.clearDrives()
 
@@ -814,6 +822,7 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
         # Return output dataframe dictionary
         t = t.to_array()  # s
         stim = self.fixStimVec(stim.to_array(), dt)
+        print(f'return of simulate {SpatiallyExtendedTimeSeries({id: self.outputDataFrame(t, stim, probes) for id, probes in all_probes.items()})} \n')
         return SpatiallyExtendedTimeSeries({
             id: self.outputDataFrame(t, stim, probes) for id, probes in all_probes.items()})
 

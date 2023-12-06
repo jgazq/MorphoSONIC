@@ -180,11 +180,11 @@ class FiberParser(SpatiallyExtendedParser):
         return SpatiallyExtendedParser.parseSimInputs(args)
 
     def parse(self, args=None):
-        args = super().parse(args=args)
+        args = super().parse(args=args)#;print(models_dict)
         args['type'] = [models_dict[model_key] for model_key in args['type']]
         if args['wiring'] == 'default':
             args['type'] = [fclass.__original__ for fclass in args['type']]
-        for key in ['fiberD']:
+        for key in ['fiberD']: #this needs to be args['fiberD'] right? #joa
             if len(args[key]) > 1 or args[key][0] is not None:
                 args[key] = self.parse2array(args, key, factor=self.factors[key])
         return args
@@ -320,3 +320,94 @@ class TestNetworkParser(TestParser):
     def addConnect(self):
         self.add_argument(
             '--connect', default=False, action='store_true', help='Connect nodes')
+        
+
+#added by Joa
+class NeuronParser(SpatiallyExtendedParser):
+
+    def __init__(self):
+        super().__init__()
+        self.defaults.update({'type': 'realistic_cort', 'x0': 0., 'sigma': 1.}) #sigma is 1mm by default
+        self.factors.update({'sigma': 1 / M_TO_MM})
+        self.addType()
+        self.addx0()
+        self.addSigma()
+
+    def addResistivity(self):
+        pass
+
+    def addType(self):
+        self.add_argument(
+            '--type', nargs='+', type=str, help='Neuron model type')
+
+    def addx0(self):
+        self.add_argument(
+            '--x0', '--gausscenter', nargs='+', type=float, help='Gaussian center coordinate (m)')
+
+    def addSigma(self):
+        self.add_argument(
+            '--sigma', nargs='+', type=float, help='Gaussian RMS width (m)')
+
+    def parsePlot(self, args, output):
+        if args['section'] is None:
+            if args['compare']:
+                logger.warning('no section specified for plot -> showing profiles from all recorded sections')
+                args['section'] = ['all']
+            else:
+                logger.warning('no section specified for plot -> plotting from central section only')
+                args['section'] = ['center']
+        if args['section'] == ['center'] and args['compare']:
+            raise ValueError(
+                '"center" placeholder for section ID cannot be used when comparing results from models of different sizes')
+        if len(args['section']) > 5 and args['plot'] != ['all'] and not args['compare']:
+            logger.warning(
+                'More than 5 morphological sections were specified for plots -> falling back to comparative plot(s)')
+            args['compare'] = True
+        return SpatiallyExtendedParser.parsePlot(args, output)
+
+    @staticmethod
+    def parseSimInputs(args):
+        return SpatiallyExtendedParser.parseSimInputs(args)
+
+    def parse(self, args=None):
+        args = super().parse(args=args)#;print(models_dict)
+        args['type'] = [models_dict[model_key] for model_key in args['type']]
+        if args['wiring'] == 'default':
+            args['type'] = [fclass.__original__ for fclass in args['type']]
+        # for key in ['fiberD']:
+        #     if len(args[key]) > 1 or args[key][0] is not None:
+        #         args[key] = self.parse2array(args, key, factor=self.factors[key])
+        return args
+        
+
+class AStimNeuronParser(NeuronParser, AStimParser):
+
+    def __init__(self):
+        AStimParser.__init__(self)
+        NeuronParser.__init__(self)
+        for x in [self.defaults, self.allowed, self.to_parse]:
+            x.pop('method')
+        self.defaults.update({'tstim': 0.1, 'toffset': 3.})
+
+    @staticmethod
+    def parseSimInputs(args):
+        return AStimParser.parseSimInputs(args) + SpatiallyExtendedParser.parseSimInputs(args)
+
+    def parsePlot(self, *args):
+        return NeuronParser.parsePlot(self, *args)
+
+
+class AStimRealisticNeuronParser(AStimNeuronParser):
+
+    amp_unit = 'kPa'
+
+    def __init__(self):
+        super().__init__()
+        #self.defaults.update({'secid': None})
+        #self.addSectionID()
+
+    def parseAmplitude(self, args):
+        return AStimParser.parseAmplitude(self, args)
+
+    # def parse(self):
+    #     return self.parseSecID(super().parse())
