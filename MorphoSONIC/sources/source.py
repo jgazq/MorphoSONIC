@@ -180,6 +180,8 @@ class GaussianSource(XSource):
         return gaussian(x, mu=self.x0, sigma=self.sigma, A=self.xvar)
 
     def computeDistributedAmps(self, fiber):
+        if ABERRA:
+            return {k: self.getField(v) for k, v in fiber.getXCoords().items()}
         if fiber.length < MIN_FIBERL_FWHM_RATIO * self.FWHM:
             logger.warning('fiber is too short w.r.t stimulus FWHM')
         return {k: self.getField(v) for k, v in fiber.getXCoords().items()}

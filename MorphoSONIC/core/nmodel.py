@@ -242,7 +242,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
             d = {'Vm': MechVSection, 'Qm': MechQSection}
         return d[self.refvar]
 
-    def createSection(self, id, *args, mech=None, states=None, Cm0=None):
+    def createSection(self, id, *args, mech=None, states=None, Cm0=None, nrnsec=None): #nrnsec is added to enable creation of Aberra cell Sections
         ''' Create a model section with a given id. '''
         args = [x for x in args if x is not None]
         if Cm0 is None:
@@ -250,7 +250,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
         kwargs = {'name': id, 'cell': self, 'Cm0': Cm0}
         if mech is not None:
             kwargs.update({'mechname': mech, 'states': states})
+        if nrnsec:
+            kwargs.update({'nrnsec': nrnsec})
         secclass = self.getSectionClass(mech)
+        #print('secclas: ',secclass) #to check which section class is chosen
         return secclass(*args, **kwargs)
 
     def setTimeProbe(self):
@@ -259,6 +262,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
     def setIntegrator(self, dt, atol):
         ''' Set CVODE integration parameters. '''
+        #print(f'dt: {dt}, atol: {atol},cvode_active: {cvode.active()}')
         if dt is not None:
             h.secondorder = 0  # using backward Euler method if fixed time step
             h.dt = dt * S_TO_MS
@@ -266,7 +270,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 cvode.active(0)
         else:
             if not cvode.active():
-                cvode.active(1)
+                cvode.active(1) #apparently it is better to use h.cvode_active(1) instead of h.cvode.active(1) 
             if atol is not None:
                 cvode.atol(atol)
 
@@ -394,8 +398,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
     def integrateUntil(self, tstop):
         logger.debug(f'integrating system using {self.getIntegrationMethod()}')
         h.t = 0
+        #print(f'tstop = {tstop}')
         while h.t < tstop:
             self.advance()
+            #print(f'h.t = {h.t}')
 
     def advance(self):
         ''' Advance simulation onto the next time step. '''
@@ -477,19 +483,29 @@ class NeuronModel(metaclass=abc.ABCMeta):
         # Check conformity of inputs
         dims_not_matching = 'reference vector size ({}) does not match matrix {} dimension ({})'
         nx, ny = int(matrix.nrow()), int(matrix.ncol())
+        #nx, ny are the dimensions of the LUT matrix, only 2D?
         assert xref.size() == nx, dims_not_matching.format(xref.size(), '1st', nx)
         assert yref.size() == ny, dims_not_matching.format(yref.size(), '2nd', nx)
 
         # Get the HOC function that fills in a specific FUNCTION_TABLE in a mechanism
-        if 'real' in mechname and 'neuron' in mechname:
+        #ASSUMPTION: all the LUT for all mechanisms are loaded in, even if not all function tables need to be used for a specific compartment/cell #POTENTIAL RISK?
+        #(different compartment types contain different mech & cells don't have all the available mechs)
+        if 'real' in mechname and 'neuron' in mechname: #also "if ABERRA:" can be used
             if fname == 'V':
-                print(f'table_{fname}_K_Pst')
-                fillTable = getattr(h, f'table_{fname}_K_Pst') #this assumes that the mechanism K_Pst is always present in the chosen cell
+                for mech in mech_mapping.values():
+                    try:
+                        fillTable = getattr(h, f'table_{fname}_{mech}')
+                        fillTable(matrix._ref_x[0][0], nx, xref._ref_x[0], ny, yref._ref_x[0])
+                    except:
+                        print(f'{mech} has no attribute {fname}')
+                #print(f'table_{fname}_K_Pst')
+                #fillTable = getattr(h, f'table_{fname}_K_Pst') #this assumes that the mechanism K_Pst is always present in the chosen cell -> replaced with iteration over all mechanisms
             else:
-                print(f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
+                #print(f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
                 fillTable = getattr(h, f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
         else:
-            fillTable = getattr(h, f'table_{fname}_{mechname}')
+            fillTable = getattr(h, f'table_{fname}_{mechname}') #original line: in case of a single mechanism -> not the case for Aberra cells (multiple mechanisms)
+                                                                #the function table has the following structure in hoc: table_variable_mechname
 
         # Call function
         fillTable(matrix._ref_x[0][0], nx, xref._ref_x[0], ny, yref._ref_x[0])
@@ -592,6 +608,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
     @property
     def has_ext_mech(self):
+        #print('self.seclist = ',self.seclist)
         return any(sec.has_ext_mech for sec in self.seclist)
 
 
@@ -811,9 +828,17 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
         t = self.setTimeProbe()
         stim = self.refsection.setStimProbe()
         all_probes = {}
+        no_probes = []
         for sectype, secdict in self.sections.items():
             for k, sec in secdict.items():
-                all_probes[k] = sec.setProbes()
+                if ABERRA:
+                    if sec.random_mechname: #only do this for sections that have mechanisms -> POTENTIAL RISK (the other ones are skipped and will return None when called later on)
+                        all_probes[k] = sec.setProbes() #puts a probe for every section in a dictionary    
+                    else:
+                        no_probes.append(sec.nrnsec)             
+                else:
+                    all_probes[k] = sec.setProbes() #puts a probe for every section in a dictionary
+        print(f'No probes for these sections: {no_probes}\n')
 
         # Integrate model
         self.integrate(pp, dt, atol)
@@ -822,7 +847,6 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
         # Return output dataframe dictionary
         t = t.to_array()  # s
         stim = self.fixStimVec(stim.to_array(), dt)
-        print(f'return of simulate {SpatiallyExtendedTimeSeries({id: self.outputDataFrame(t, stim, probes) for id, probes in all_probes.items()})} \n')
         return SpatiallyExtendedTimeSeries({
             id: self.outputDataFrame(t, stim, probes) for id, probes in all_probes.items()})
 

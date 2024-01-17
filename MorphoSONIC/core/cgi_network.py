@@ -28,6 +28,8 @@ class ConductanceMatrix(SquareMatrix):
             :param links: list of paired indexes inicating links across nodes.
         '''
         self.Gvec = Gvec
+        #print('links',links)
+        #print('matrix shape',self.to_array().shape)
         if links is not None:
             self.setLinks(links)
 
@@ -79,12 +81,14 @@ class ConductanceMatrix(SquareMatrix):
         '''
         for i, j in links:
             self.link(i, j)
-        self.checkNullRows()
+        if not ABERRA:
+            self.checkNullRows()
 
     def checkNullRows(self):
         ''' Check that all rows sum up to zero (or close). '''
         for i in range(self.nRow):
             rsum = self.getrow(i).sum()
+            #print("rsum",rsum)
             assert np.isclose(rsum, .0, atol=1e-12), f'non-zero sum on line {i}: {rsum}'
 
 
@@ -119,6 +123,7 @@ class NormalizedConductanceMatrix(ConductanceMatrix):
 
     @property
     def cnorm(self):
+        #print(f"len(self._cnorm) = {len(self._cnorm)}")
         return self._cnorm
 
     @cnorm.setter
@@ -386,6 +391,9 @@ class HybridNetwork:
             :param k: parameter name
             :return: 1D numpy array with parameter values
         '''
+        if ABERRA:
+            self.eff_sections = [(e.random_mechname != None and e.random_mechname != False) for e in self.seclist]
+            return np.array([getattr(sec, k) for sec in [e for i,e in enumerate(self.seclist) if self.eff_sections[i]]])
         return np.array([getattr(sec, k) for sec in self.seclist])
 
     def setGlobalComponents(self):
@@ -410,6 +418,10 @@ class HybridNetwork:
         # Define Gacm matrix and point it towards G top-left (if no explicit iax)
         self.Gacm = pointerMatrix(NormalizedConductanceMatrix)(
             self.ga, links=self.connections, rnorm=self.Am, cnorm=self.cm)
+        if ABERRA:
+            #print(f'self.eff_sections: {self.eff_sections}') #this list contains which sections have a random_mechname and thus a probe and which have None
+            self.Gacm.rem_rows_cols(self.eff_sections,self.eff_sections)
+
         if not self.use_explicit_iax:
             self.Gacm.addRef(self.G, 0, 0)
 
@@ -522,6 +534,8 @@ class HybridNetwork:
             :return: axial current density vector (mA/cm2)
         '''
         Ga = self.Gacm.scaled(rnorm=np.ones(self.nsec))  # S/cm2
+        #print('Vi.shape: ',Vi.shape) #Vi for all 185 sections to know the dimensions of this vector
+        #print(f'Ga.shape: ({Ga.ncol()},{Ga.nrow()})') #to know the dimensions of this matrix (gives problems when using Myelin sections without a Vm/Qm)
         return np.array(Ga.mulv(h.Vector(Vi)).to_python())
 
     def updateIax(self):

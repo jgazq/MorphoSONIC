@@ -352,6 +352,7 @@ def addSonicFeatures(Base):
             return self._network is not None
 
         def getSectionClass(self, *args, **kwargs):
+            #print('getcustom: ',getCustomConnectSection(super().getSectionClass(*args, **kwargs)),'\n\n') #to check if this function is called or not
             return getCustomConnectSection(super().getSectionClass(*args, **kwargs))
 
         def createSection(self, *args, **kwargs):
@@ -374,6 +375,7 @@ def addSonicFeatures(Base):
             super().setTopology()
 
         def registerConnection(self, sec1, sec2):
+            #print(tuple([self.seclist.index(x) for x in [sec1, sec2]])) #to check which sections/compartments are connected
             self.connections.append(tuple([self.seclist.index(x) for x in [sec1, sec2]]))
 
         def getOrderedSecIndexes(self):
@@ -413,9 +415,13 @@ def addSonicFeatures(Base):
             with np.printoptions(**array_print_options):
                 for k, amps in A_dict.items():
                     logger.debug(f'{k}: A = {amps * PA_TO_KPA} kPa')
-            for k, amps in A_dict.items():
-                for A, sec in zip(amps, self.sections[k].values()):
-                    sec.setMechValue('Adrive', A * PA_TO_KPA)
+            for k, amps in A_dict.items(): #e.g.: k = apical, [amps for every apical section]
+                for A, sec in zip(amps, self.sections[k].values()): #e.g. A = amplitude, sec: specific apical section
+                    if ABERRA:
+                        for mech in sec.relevant_mechs:
+                            sec.setMechValue('Adrive', A * PA_TO_KPA,namemech=mech)
+                    else:
+                        sec.setMechValue('Adrive', A * PA_TO_KPA)
             return []
 
         @property
@@ -433,11 +439,16 @@ def addSonicFeatures(Base):
             return isinstance(source, AcousticSource)
 
         def setDrives(self, source):
+
             is_dynamic_cm = False
             if self.isDynamicCmSource(source):
                 self.checkForSonophoreRadius()
                 self.setFuncTables(source.f)
                 is_dynamic_cm = True
+            #print("self.connections: ",self.connections)
+            # if ABERRA:
+            #     super().setDrives(source) #why did I add this? this lines happens below anyway -> probably I forgot the return below to skip the next part because self.connections gives errors
+            #     return
             self.network = HybridNetwork(
                 self.seclist,
                 self.connections,
@@ -466,6 +477,7 @@ def addSonicFeatures(Base):
 
         def addIaxToSolution(self, sp_ext_sol):
             ''' Add axial currents to solution. '''
+            #print(f'sp_ext_sol.keys(): {sp_ext_sol.keys()}') #to print all the keys of the simulation output -> these are just the sections of the simulated cell
             Vi_dict = {k: sol['Vin' if 'Vin' in sol else 'Vm'] for k, sol in sp_ext_sol.items()}
             for k, v in self.computeIax(Vi_dict).items():
                 sp_ext_sol[k]['iax'] = v  # mA/m2
@@ -473,8 +485,8 @@ def addSonicFeatures(Base):
         def simulate(self, *args, **kwargs):
             ''' Add axial currents to solution. '''
             sp_ext_sol, meta = super().simulate(*args, **kwargs)
-            print(super())
-            print('sonic simulate:\t\t',sp_ext_sol,'\n\n',meta)
+            print(f"super(): {super()}")
+            print(f'sonic simulate:\nsp_ext_sol: {sp_ext_sol}\nmeta: {meta}\n')
             self.addIaxToSolution(sp_ext_sol)
             return sp_ext_sol, meta
 

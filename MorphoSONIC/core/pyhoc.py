@@ -118,11 +118,13 @@ class Matrix(hclass(h.Matrix)):
 
     def mulRows(self, v):
         ''' Multiply rows by independent scalar values from a vector. '''
+        #print(f"v.size = {v.size} =? self.nRow = {self.nRow}") #gave an error due to Myelin sections mismatch error
         assert v.size == self.nRow, f'Input vector must be of size {self.nRow}'
         for i, x in enumerate(v):
             self.mulRow(i, x)
 
     def mulCols(self, v):
+        #print(f"v.size = {v.size} =? self.nCol = {self.nCol}")
         ''' Multiply columns by independent scalar values from a vector. '''
         assert v.size == self.nCol, f'Input vector must be of size {self.nCol}'
         for j, x in enumerate(v):
@@ -161,6 +163,20 @@ class Matrix(hclass(h.Matrix)):
         ''' Method called manually to execute operations after a full matrix update. '''
         pass
 
+    def rem_rows_cols(self,rows,cols):
+        '''added by Joa: removes certain rows and colums by giving a list with the truth value of keeping that particular row/column'''
+        nrows, ncols = np.sum(rows), np.sum(cols) #new dimensions of the matrix
+        mat_dupl = np.zeros((self.nrow(),self.ncol())) #create an empty np array with reduced dimensions
+        for i in range(self.nrow()):
+            for j in range(self.ncol()):
+                mat_dupl[i,j] = self.getval(i,j) #copy the current matrix to mat_dupl
+        mat_dupl = np.delete(mat_dupl,[not e for e in rows],0) #remove the selected rows
+        mat_dupl = np.delete(mat_dupl,[not e for e in cols],1) #remove the selected columns
+        self.resize(nrows,ncols)
+        for i in range(nrows):
+            for j in range(ncols):
+                self.setval(i,j,mat_dupl[i,j]) 
+        #print(self.nrow(),self.ncol()) #to check if the dimension reduction is done properly
 
 class SquareMatrix(Matrix):
     ''' Interface to a square matrix object. '''
@@ -330,19 +346,59 @@ class Section(nrn.Section):
 
     stimon_var = 'stimon'
 
-    def __init__(self, name=None, cell=None, Cm0=1.):
+    def __init__(self, name=None, cell=None, Cm0=1., nrnsec = None):
         ''' Initialization.
 
             :param name: section name
             :param cell: section cell
             :param Cm0: resting membrane capacitance (uF/cm2)
+            :param nrnsec: existing nrn.Section object to upgrade
         '''
         if name is None:
             raise ValueError('section must have a name')
-        if cell is not None:
-            super().__init__(name=name, cell=cell)
+        
+
+        #print('SECTION INIT:\n')
+        if nrnsec: #type(nrnsec) = <class 'nrn.Section'>
+        #IDEA1 -> transfer all atrributes from given nrnsec to self (self is a <deleted section>)
+        #     for attr in dir(nrnsec):
+        #         if not attr.startswith("__"):  # Exclude internal attributes
+        #             print('here')
+        #             setattr(self, attr, getattr(nrnsec, attr))
+        #             print('here')
+        #             # print(f"attribute name: {attr}")
+        #             # print("atribute value: ",eval(f"nrnsec.{attr}"))
+            
+        #IDEA2 -> give the nrnsec as a variable of the class 
+        #     self.nrnsec = nrnsec (self is a <deleted section>)
+            
+        #IDEA3 -> self = nrnsec 
+            # print(self,nrnsec)
+            # print(type(nrnsec))
+            # self = nrnsec # self becomes a pure nrn.Section and has no passive_mechname
+            # print(self,nrnsec)
+            # print("set self - nrnsec:",set(dir(self))-set(dir(nrnsec)))
+            # print("set nrnsec - self:",set(dir(nrnsec))-set(dir(self)))    
+
+        #IDEA GPT
+            #super().__init__(section=nrnsec) #TypeError: 'section' is an invalid keyword argument for this function
+            #self.__dict__.update(nrnsec.__dict__) #not possible, self is a <deleted section> 
+            #print('name: ',nrnsec.name,'cell: ',nrnsec.cell)
+            #super().__init__(name=name, cell=cell) #creates a new section with the same name and cell
+            super().__init__() #this creates and empty nrn.section (__nrnsec_000001bbfdf0a620)
+            #self._nrn_sec = nrnsec
+            for attr in dir(nrnsec):
+                if not attr.startswith("__"):  # Exclude internal attributes
+                    setattr(self, attr, getattr(nrnsec, attr))
+                    # print(f"attribute name: {attr}")
+                    # print("atribute value: ",eval(f"nrnsec.{attr}"))
+            self.nrnsec = nrnsec
+        #ultimately IDEA 1 + 2 has been implemented
+
+        elif cell is not None: #changed this to elif instead of if
+            super().__init__(name=name, cell=cell) # -> section has name: "cell.name"
         else:
-            super().__init__(name=name)
+            super().__init__(name=name) # -> section has name: "name"
         self.passive_mechname = cell.passive_mechname
         self.Cm0 = Cm0
         self.nseg = 1
@@ -417,6 +473,8 @@ class Section(nrn.Section):
             :param x: optional relative position over the section's length (0 <= x <= 1)
             :return: section's self (if x not provided) or of section's only segment (if x provided)
         '''
+        if ABERRA:
+            return self.nrnsec(x) if x is not None else self.nrnsec
         return self(x) if x is not None else self
 
     def setValue(self, key, value, x=None):
@@ -426,6 +484,8 @@ class Section(nrn.Section):
             :param value: attribute value
             :param x: relative position over the section's length
         '''
+        # print("x: ",x)
+        # print("target: ",self.target(x))
         setattr(self.target(x), key, value)
 
     def getValue(self, key, x=None):
@@ -435,6 +495,7 @@ class Section(nrn.Section):
             :param x: relative position over the section's length
             :return: attribute value
         '''
+        #print(f'getValue: self.target(x): {self.target(x)} with x = {x}, key: {key}')
         return getattr(self.target(x), key)
 
     def setProbe(self, var, loc=0.5, **kwargs):
@@ -566,20 +627,32 @@ class Section(nrn.Section):
             d['Vext'] = self.setVextProbe()
         return d
 
-    def setMechValue(self, key, value, **kwargs):
+    def setMechValue(self, key, value, namemech = None, **kwargs):
         ''' Set the value of the section's mechanism attribute.
 
             :param key: attribute name
             :param value: attribute value
         '''
-        self.setValue(f'{key}_{self.mechname}', value, **kwargs)
+        if not ABERRA:
+            self.setValue(f'{key}_{self.mechname}', value, **kwargs)
+        elif namemech:
+            self.setValue(f'{key}_{namemech}', value, **kwargs)
+        else:
+            raise ValueError('No mechname is given')
+        
+        
 
-    def getMechValue(self, key, **kwargs):
+    def getMechValue(self, key, namemech = None,**kwargs):
         ''' Get the value of an attribute related to the section's mechanism.
 
             :param key: attribute name
             :return: attribute value
         '''
+        if ABERRA:
+            if namemech:
+                return self.getValue(f'{key}_{namemech}', **kwargs)
+            else:
+                raise ValueError('No mechname is given')
         return self.getValue(f'{key}_{self.mechname}', **kwargs)
 
     def setStimON(self, value):
@@ -588,19 +661,34 @@ class Section(nrn.Section):
             :param value: new stimulation state (0 = OFF, 1 = ON)
         '''
         try:
-            self.setMechValue(self.stimon_var, value)
+            if ABERRA:
+                for mech in self.relevant_mechs:
+                    self.setMechValue(self.stimon_var, value, namemech=mech)
+            else:
+                self.setMechValue(self.stimon_var, value)
         except AttributeError as err:
             if self.hasPassive() and self.passive_mechname == CLASSIC_PASSIVE_MECHNAME:
                 pass
             else:
                 raise err
-
-    def setMechProbe(self, var, loc=0.5, **kwargs):
+        
+    def setMechProbe(self, var, loc=0.5, namemech = None,**kwargs):
         ''' Set recording vector for a mechanism specific variable. '''
+        if ABERRA:
+            if namemech:
+                if var in self.nrnsec.psection()['density_mechs'][namemech].keys():
+                    return self.setProbe(f'{var}_{namemech}', loc=loc, **kwargs)
+                else:
+                    print(f'Variable: {var} is not defined in the mechanism: {namemech} of section: {self.nrnsec} ')
+                    return None #POTENTIAL RISK: if this probe is called it will give None
+            else:
+                raise ValueError('No mechname is given')
         return self.setProbe(f'{var}_{self.mechname}', loc=loc, **kwargs)
 
     def setStimProbe(self):
         ''' Set recording vector for stimulation state. '''
+        if ABERRA:
+            return self.setMechProbe(self.stimon_var,namemech=self.random_mechname) #POTENTIAL RISK by choosing a random mechname, this is a single probe so no possible to select all mechnames, is this a global variable? see stimon in any mech file
         return self.setMechProbe(self.stimon_var)
 
 
@@ -670,7 +758,8 @@ class MechSection(Section):
     def mechname(self, value):
         if value == 'pas':
             value = self.passive_mechname
-        self.insert(value)
+        if not ('real' in value and 'neuron' in value): #if not ABERRA:
+            self.insert(value) #in the case of Aberra cells the mechanisms are already inserted
         self._mechname = value
 
     @property
@@ -691,6 +780,15 @@ class MechSection(Section):
         return self.NEURON_aliases.get(state, state)
 
     def setProbes(self):
+        if ABERRA:
+            states_mechs = [(e.split('_')[0], e.split('_')[-1]) for e in self.states if mech_mapping[e.split('_')[-1]] in self.relevant_mechs]
+            #print(f"self.nrnsec:{self.nrnsec}:") # print the current section
+            #print(f"self.states: {self.states}\n\nself.relevant_mechs: {self.relevant_mechs}\n") # print all the states of the pneuron and the relevant mechs of the current section
+            #print(f"relevant_states: {states_mechs}\n\n") # print the determined relevant states based on the inserted mechanisms in that particular section
+            return {
+                **super().setProbes(),
+                **{k: self.setMechProbe(self.alias(k[0]),namemech=mech_mapping[k[-1]]) for k in states_mechs}
+            }
         return {
             **super().setProbes(),
             **{k: self.setMechProbe(self.alias(k)) for k in self.states}
@@ -715,14 +813,19 @@ class MechQSection(MechSection, QSection):
     ''' Interface to a Q-based Section with associated point-neuron mechanism. '''
 
     def __init__(self, **kwargs):
+        #first he pops out the arguments that are needed for Qsection init and leaves the other arguments for MechSection init
         name = kwargs.pop('name', None)
         cell = kwargs.pop('cell', None)
         Cm0 = kwargs.pop('Cm0', 1.)
-        QSection.__init__(self, name=name, cell=cell, Cm0=Cm0)
+        nrnsec = kwargs.pop('nrnsec', None)
+        QSection.__init__(self, name=name, cell=cell, Cm0=Cm0, nrnsec=nrnsec)
         MechSection.__init__(self, **kwargs)
 
     def setVmProbe(self):
-        return self.setMechProbe('Vm')
+        if ABERRA:
+            return self.setMechProbe('Vm',namemech=self.random_mechname) #potential RISK: taking a random mechanism to put the Vm probe in
+        else:
+            return self.setMechProbe('Vm') #potential RISK: taking a random mechanism to put the Vm probe in
 
 
 def getCustomConnectSection(section_class):
@@ -736,6 +839,13 @@ def getCustomConnectSection(section_class):
                 key = self.mechname
             except AttributeError:
                 key = self.passive_mechname
+            if ABERRA:
+                inserted_mechs = [e for e in self.nrnsec.psection()['density_mechs'].keys()] #gives a list of all mechanisms that are inserted in this particular section
+                relevant_mechs = [e for e in inserted_mechs]
+                relevant_mechs.remove('xtra'); relevant_mechs.remove('extracellular'); relevant_mechs.remove('pas')
+                self.relevant_mechs = relevant_mechs
+                self.random_mechname = relevant_mechs[-1] if relevant_mechs else None #put this in commentary after -> temporal solution #POTENTIAL RISK
+                key = self.random_mechname
             self.vref = f'Vm_{key}'
             self.ex = 0.       # mV
             self.ex_last = 0.  # mV
@@ -761,6 +871,14 @@ def getCustomConnectSection(section_class):
             return self.getValue(f'_ref_{self.vref}', **kwargs)
 
         def getCm(self, **kwargs):
+            #print(f'\nself.nrnsec: {self.nrnsec}, self.vref: {self.vref}')
+            #print(f'kwargs: {kwargs}') #what are these kwargs? usually it is only an x value (location of segment in section)
+            #print((self.nrnsec.psection()['density_mechs'].keys())) #to print the inserted density mechanisms 
+            #print(f"{self.getValue('v', **kwargs)} / {self.getVm(**kwargs)} = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #shows how the capacitance is calculate
+            if ABERRA:
+                if 'Myelin' in str(self.nrnsec):
+                    return 1.0 #POTENTIAL RISK -> the capacitance in the myelin sections is never equal to one but for debugging
+            #print(f"Cm = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #to check the general values of Cm => doesn't deviate much from 1
             return self.getValue('v', **kwargs) / self.getVm(**kwargs)
 
         def connect(self, parent):

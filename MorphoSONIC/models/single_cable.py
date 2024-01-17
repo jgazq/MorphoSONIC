@@ -86,6 +86,7 @@ class SingleCableFiber(FiberNeuronModel):
 
     @property
     def sections(self):
+        #print({'node': self.nodes})
         return {'node': self.nodes}
 
     @property
