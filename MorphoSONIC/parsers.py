@@ -322,7 +322,7 @@ class TestNetworkParser(TestParser):
             '--connect', default=False, action='store_true', help='Connect nodes')
         
 
-#added by Joa
+#added by Joa -------------------------------------------------------------------------------------------------------------------------------|
 class NeuronParser(SpatiallyExtendedParser):
 
     def __init__(self):

@@ -9,7 +9,7 @@ import abc
 import numpy as np
 from scipy.optimize import brentq
 
-from PySONIC.utils import logger, gaussian
+from PySONIC.utils import logger, gaussian, gaussian3D
 from PySONIC.core.stimobj import StimObject
 from PySONIC.core.drives import *
 
@@ -185,6 +185,158 @@ class GaussianSource(XSource):
         if fiber.length < MIN_FIBERL_FWHM_RATIO * self.FWHM:
             logger.warning('fiber is too short w.r.t stimulus FWHM')
         return {k: self.getField(v) for k, v in fiber.getXCoords().items()}
+
+    def computeSourceAmp(self, fiber, A):
+        return A
+
+class Gaussian3DSource(XSource):
+
+    # Ratio between RMS width and full width at half maximum
+    sigma_to_fwhm = 2 * np.sqrt(2 * np.log(2))
+
+    def __init__(self, x0, y0, z0, sigmax, sigmay, sigmaz):
+        ''' Constructor.
+
+            :param x0: gaussian center x coordinate (m)
+            :param y0: gaussian center y coordinate (m)
+            :param z0: gaussian center w coordinate (m)
+            :param sigmax: gaussian RMS width in x direction (m)
+            :param sigmay: gaussian RMS width in y direction (m)
+            :param sigmaz: gaussian RMS width in w direction (m)
+        '''
+        self.x0 = x0
+        self.y0 = y0
+        self.z0 = z0
+        self.sigmax = sigmax
+        self.sigmay = sigmay
+        self.sigmaz = sigmaz
+
+    @property
+    def x0(self):
+        return self._x0
+
+    @x0.setter
+    def x0(self, value):
+        value = self.checkFloat('center', value)
+        self._x0 = value
+
+    @property
+    def y0(self):
+        return self._y0
+
+    @y0.setter
+    def y0(self, value):
+        value = self.checkFloat('center', value)
+        self._y0 = value
+
+    @property
+    def z0(self):
+        return self._z0
+
+    @z0.setter
+    def z0(self, value):
+        value = self.checkFloat('center', value)
+        self._z0 = value
+
+    @property
+    def sigmax(self):
+        return self._sigmax
+
+    @sigmax.setter
+    def sigmax(self, value):
+        value = self.checkFloat('width', value)
+        self.checkStrictlyPositive('width', value)
+        self._sigmax = value
+
+    @property
+    def sigmay(self):
+        return self._sigmay
+
+    @sigmay.setter
+    def sigmay(self, value):
+        value = self.checkFloat('width', value)
+        self.checkStrictlyPositive('width', value)
+        self._sigmay = value
+
+    @property
+    def sigmaz(self):
+        return self._sigmaz
+
+    @sigmaz.setter
+    def sigmaz(self, value):
+        value = self.checkFloat('width', value)
+        self.checkStrictlyPositive('width', value)
+        self._sigmaz = value
+
+    @classmethod
+    def from_FWHM(cls, w):
+        return w / cls.sigma_to_fwhm
+
+    @property
+    def FWHMx(self):
+        ''' Full width at half maximum in x direction. '''
+        return self.sigmax * self.sigma_to_fwhm
+    
+    @property
+    def FWHMy(self):
+        ''' Full width at half maximum in x direction. '''
+        return self.sigmay * self.sigma_to_fwhm
+    
+    @property
+    def FWHMz(self):
+        ''' Full width at half maximum in x direction. '''
+        return self.sigmaw * self.sigma_to_fwhm
+
+    @staticmethod
+    def inputs():
+        return {
+            'x0': {
+                'desc': 'center x coordinate',
+                'label': 'x0',
+                'unit': 'm',
+                'precision': 1
+            },
+            'y0': {
+                'desc': 'center y coordinate',
+                'label': 'y0',
+                'unit': 'm',
+                'precision': 1
+            },
+            'z0': {
+                'desc': 'center z coordinate',
+                'label': 'z0',
+                'unit': 'm',
+                'precision': 1
+            },
+            'sigmax': {
+                'desc': 'x width',
+                'label': 'sigmax',
+                'unit': 'm',
+                'precision': 1
+            },
+            'sigmay': {
+                'desc': 'y width',
+                'label': 'sigmay',
+                'unit': 'm',
+                'precision': 1
+            },
+            'sigmaz': {
+                'desc': 'z width',
+                'label': 'sigmaz',
+                'unit': 'm',
+                'precision': 1
+            }
+        }
+
+    def getField(self, x, y, z):
+        return gaussian3D(x, y, z, mux=self.x0, muy=self.y0, muz=self.z0, sigmax=self.sigmax, sigmay=self.sigmay, sigmaz=self.sigmaz, A=self.xvar)
+
+    def computeDistributedAmps(self, fiber):
+        if ABERRA:
+            return {k: self.getField(v,w,x) for k, v, w, x in zip(fiber.getXCoords().keys(), fiber.getXCoords().values(), fiber.getYCoords().values(), fiber.getZCoords().values())}
+        if fiber.length < MIN_FIBERL_FWHM_RATIO * self.FWHMx or fiber.length < MIN_FIBERL_FWHM_RATIO * self.FWHMy or fiber.length < MIN_FIBERL_FWHM_RATIO * self.FWHMz:
+            logger.warning('fiber is too short w.r.t stimulus FWHM')
+        return {k: self.getField(v,w,x) for k, v, w, x in zip(fiber.getXCoords().keys(), fiber.getXCoords().values(), fiber.getYCoords().values(), fiber.getZCoords().values())}
 
     def computeSourceAmp(self, fiber, A):
         return A

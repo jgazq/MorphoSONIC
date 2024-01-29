@@ -13,7 +13,7 @@ from PySONIC.core.batches import Batch
 
 from ..grids import getCircle2DGrid
 from ..constants import *
-from .source import XSource, SectionSource, GaussianSource, ExtracellularSource
+from .source import XSource, SectionSource, GaussianSource, ExtracellularSource, UniformSource, Gaussian3DSource
 
 
 class AcousticSource(XSource):
@@ -116,6 +116,22 @@ class SectionAcousticSource(SectionSource, AbstractAcousticSource):
         return {**SectionSource.inputs(), **AbstractAcousticSource.inputs()}
 
 
+class UniformAcousticSource(UniformSource, AbstractAcousticSource):
+
+    def __init__(self, f, A=None):
+        AbstractAcousticSource.__init__(self, f, A=A)
+
+    def computeDistributedAmps(self, fiber):
+        return UniformSource.computeDistributedAmps(self, fiber)
+
+    def copy(self):
+        return self.__class__(self.f, A=self.A)
+
+    @staticmethod
+    def inputs():
+        return AbstractAcousticSource.inputs()
+
+
 class GaussianAcousticSource(GaussianSource, AbstractAcousticSource):
 
     def __init__(self, x0, sigma, f, A=None):
@@ -131,6 +147,23 @@ class GaussianAcousticSource(GaussianSource, AbstractAcousticSource):
     @staticmethod
     def inputs():
         return {**GaussianSource.inputs(), **AbstractAcousticSource.inputs()}
+    
+
+class Gaussian3DAcousticSource(Gaussian3DSource, AbstractAcousticSource):
+
+    def __init__(self, x0, y0, z0, sigmax, sigmay, sigmaz, f, A=None):
+        Gaussian3DSource.__init__(self, x0, y0, z0, sigmax, sigmay, sigmaz)
+        AbstractAcousticSource.__init__(self, f, A=A)
+
+    def computeDistributedAmps(self, fiber):
+        return Gaussian3DSource.computeDistributedAmps(self, fiber)
+
+    def copy(self):
+        return self.__class__(self.x0, self.y0, self.z0, self.sigmax, self.sigmay, self.sigmaz, self.f, A=self.A)
+
+    @staticmethod
+    def inputs():
+        return {**Gaussian3DSource.inputs(), **AbstractAcousticSource.inputs()}
 
 
 class PlanarDiskTransducerSource(ExtracellularSource, AcousticSource):

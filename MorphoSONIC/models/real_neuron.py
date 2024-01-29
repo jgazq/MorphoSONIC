@@ -126,6 +126,15 @@ class nrn(SpatiallyExtendedNeuronModel):
         #self.cell = h.cADpyr229_L23_PC_8ef1aa6602(se) #class object based on defined template
         self.cell = h.cell
         print("self.mechname: ",self.mechname)
+
+        for sec in h.allsec():
+            #print(sec.psection()['density_mechs'].keys()) #to print all sections with their respective insterted mechanisms
+            if 'pas' in sec.psection()['density_mechs'].keys():
+                sec.insert('pas_eff')
+                sec.g_pas_eff = sec.g_pas
+                sec.e_pas_eff = sec.e_pas
+                sec.uninsert('pas')
+                #sec.Ra = 1e20 # to decouple the different sections from each other
         
         #first create a dictionary for every type of compartment by creating a python section wrapper around the nrn section
         #self.sections = {'soma': {eval(f"'soma{i}'"): e for i,e in enumerate(self.cell.soma)}, 'apical': {eval(f"'apical{i}'"): e for i,e in enumerate(self.cell.apical)}, 'basal': {eval(f"'basal{i}'"): e for i,e in enumerate(self.cell.basal)}, 'node': {eval(f"'node{i}'"): e for i,e in enumerate(h.Node)}, 'myelin': {eval(f"'myelin{i}'"): e for i,e in enumerate(h.Myelin)}, 'unmyelin': {eval(f"'unmyelin{i}'"): e for i,e in enumerate(h.Unmyelin)}} #no axon -> replaced with Node, Myelin and Unmyelin
@@ -145,9 +154,9 @@ class nrn(SpatiallyExtendedNeuronModel):
         unmyelins = {eval(f"'unmyelin{i}'"): self.createSection(eval(f"'unmyelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Unmyelin)}
 
         #self.sections: dicionary contain dictionaries for each type
-        self.sections = {'soma': somas, 'apical': apicals, 'basal': basals, 'node': nodes, 'unmyelin': unmyelins} #no axon -> replaced with Node, Myelin and Unmyelin #, 'myelin': myelins
+        self.sections = {'soma': somas, 'apical': apicals, 'basal': basals, 'node': nodes, 'myelin': myelins, 'unmyelin': unmyelins} #no axon -> replaced with Node, Myelin and Unmyelin #
         #self.seclist: contains all python sections in a list
-        self.seclist = [*list(somas.values()), *list(apicals.values()), *list(basals.values()), *list(nodes.values()), *list(unmyelins.values())] #, *list(myelins.values())
+        self.seclist = [*list(somas.values()), *list(apicals.values()), *list(basals.values()), *list(nodes.values()), *list(myelins.values()), *list(unmyelins.values())] #
         #self.nrnseclist: contains all (original) nrn (hoc) sections in a list 
         self.nrnseclist = [e.nrnsec for e in self.seclist]
         #print("len(seclist): ",len(self.seclist)) #to check how many sections are defined
@@ -155,19 +164,19 @@ class nrn(SpatiallyExtendedNeuronModel):
 
         self.connections = []
         #check if duplicate sections:
-        soma_dupl = []
-        for i,sec in enumerate(h.allsec()):
-            #print('first sec: ',sec) if (i==0) else None
-            if 'soma' in str(sec):
-                soma_dupl.append(sec)
+        # soma_dupl = []
+        # for i,sec in enumerate(h.allsec()):
+        #     #print('first sec: ',sec) if (i==0) else None
+        #     if 'soma' in str(sec):
+        #         soma_dupl.append(sec)
         #print('last sec: ',sec)
-        #print('somas:\t',somas) # to check if soma is defined multiple times
+        #print('somas:\t',soma_dupl) # to check if soma is defined multiple times
 
         for sec in self.seclist:
             #print('sec: ',sec)
             parent, children = sec.nrnsec, sec.nrnsec.children()
             for child in children:
-                if ('axon' in str(parent) or 'axon' in str(child)) or ('Myeling' in str(parent) or 'Myelin' in str(child)): #there is an axon that is still a child of the soma even if they are replaced with nodes, myelin and unmyelin
+                if ('axon' in str(parent) or 'axon' in str(child)): #or ('Myelin' in str(parent) or 'Myelin' in str(child)): #there is an axon that is still a child of the soma even if they are replaced with nodes, myelin and unmyelin
                     continue
                 #print('parent: ',parent,'child',child)
                 self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child)))
@@ -179,8 +188,17 @@ class nrn(SpatiallyExtendedNeuronModel):
             # sec.random_mechname = relevant_mechs[0] if relevant_mechs else None #put this in commentary after -> temporal solution #POTENTIAL RISK
         #print(self.connections)
         print(f'CELL IS CREATED: {len(self.seclist)} sections')
-        # for e in self.seclist:
-        #     print(e.nrnsec,e.nrnsec.psection()['density_mechs'].keys()) #to print all sections with their respective insterted mechanisms
+
+        #for checking Cm0
+        # for sec in h.allsec():
+        #     print(f'Cm0_{sec}: {sec.cm}')
+        # quit()
+        #does the same as above
+        #for sec in self.seclist:
+            #print(f'Cm0_{sec.nrnsec}: {sec.nrnsec.cm}')
+            #print(f'Cm0_{sec.nrnsec}: {sec.nrnsec.Ra}')
+        # to set all the axial currents to zero (for verifiying results)
+
     
     def clearSections(self):
         self.__dell__()
@@ -220,7 +238,13 @@ class nrn(SpatiallyExtendedNeuronModel):
     def getXCoords(self):
         # print(self.sections.items())
         # print(self.sections['soma']['soma0'].x_xtra)
-        return {k: np.array([e.nrnsec.x_xtra for e in l.values()]) for k,l in self.sections.items()}
+        return {k: np.array([e.nrnsec.x_xtra*1e-6 for e in l.values()]) for k,l in self.sections.items()} #1e-6: um -> m
+    
+    def getYCoords(self):
+        return {k: np.array([e.nrnsec.z_xtra*1e-6 for e in l.values()]) for k,l in self.sections.items()} #m
+    
+    def getZCoords(self):
+        return {k: np.array([e.nrnsec.z_xtra*1e-6 for e in l.values()]) for k,l in self.sections.items()} #m
 
 
 @addSonicFeatures
@@ -229,7 +253,7 @@ class Realnrn(nrn):
 
     simkey = 'realistic_cort'
 
-    def __init__(self,cell_nr,se,**kwargs):
+    def __init__(self,cell_nr,se=0,**kwargs):
         print(f'Realnrn init: {super()}')
         self.synapses_enabled = se
         self.cell_nr = cell_nr

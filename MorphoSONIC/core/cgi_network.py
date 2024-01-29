@@ -81,8 +81,8 @@ class ConductanceMatrix(SquareMatrix):
         '''
         for i, j in links:
             self.link(i, j)
-        if not ABERRA:
-            self.checkNullRows()
+        #if not ABERRA: -> this condition always has to be satisfied
+        self.checkNullRows()
 
     def checkNullRows(self):
         ''' Check that all rows sum up to zero (or close). '''
@@ -391,9 +391,11 @@ class HybridNetwork:
             :param k: parameter name
             :return: 1D numpy array with parameter values
         '''
-        if ABERRA:
-            self.eff_sections = [(e.random_mechname != None and e.random_mechname != False) for e in self.seclist]
-            return np.array([getattr(sec, k) for sec in [e for i,e in enumerate(self.seclist) if self.eff_sections[i]]])
+        #if ABERRA:
+            # for e in self.seclist:
+            #     print(e.nrnsec,e.random_mechname)
+            #self.eff_sections = [(e.random_mechname != None and e.random_mechname != False) for e in self.seclist] # this is not necessary anymore as all sections have a "random mechname"
+            #return np.array([getattr(sec, k) for sec in [e for i,e in enumerate(self.seclist) if self.eff_sections[i]]])
         return np.array([getattr(sec, k) for sec in self.seclist])
 
     def setGlobalComponents(self):
@@ -418,9 +420,9 @@ class HybridNetwork:
         # Define Gacm matrix and point it towards G top-left (if no explicit iax)
         self.Gacm = pointerMatrix(NormalizedConductanceMatrix)(
             self.ga, links=self.connections, rnorm=self.Am, cnorm=self.cm)
-        if ABERRA:
+        #if ABERRA:
             #print(f'self.eff_sections: {self.eff_sections}') #this list contains which sections have a random_mechname and thus a probe and which have None
-            self.Gacm.rem_rows_cols(self.eff_sections,self.eff_sections)
+            #self.Gacm.rem_rows_cols(self.eff_sections,self.eff_sections) # -> don't remove any columns, all sections need to be included
 
         if not self.use_explicit_iax:
             self.Gacm.addRef(self.G, 0, 0)
@@ -470,7 +472,10 @@ class HybridNetwork:
         # Define section list (using explicit append statements to ensure retro-compatibility)
         self.sl = h.SectionList()
         for sec in self.seclist:
-            self.sl.append(sec=sec)
+            if ABERRA:
+                self.sl.append(sec=sec.nrnsec)
+            else:
+                self.sl.append(sec=sec)
         # Define vector of relative positions in the sections (always at mid-point)
         self.relx = h.Vector([0.5] * self.nsec)
         # Set initial conditions vector

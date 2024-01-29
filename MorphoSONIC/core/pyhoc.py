@@ -340,8 +340,34 @@ class ExtField():
     def set(self, value):
         self.section.setVext(self.xamp * value)
 
+if ABERRA:
+    class baseSection:
 
-class Section(nrn.Section):
+        def __init__(self,nrnsec):
+            ''' Initialization.
+
+                :param nrnsec: existing nrn.Section object to upgrade
+            '''
+            self.nrnsec = nrnsec
+        def __getattr__(self, attr):
+            """"This method will only be called when the self itself doesn't contain directly this attribute"""
+            # Pass neuron hoc attributes to the Python nrn class
+            if hasattr(self.nrnsec, attr):
+                return getattr(self.nrnsec, attr)
+            else:
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{attr}'")
+else:
+    class baseSection(nrn.Section):
+        def __init__(self, name=None, cell=None):
+            ''' Initialization.
+
+                :param name: section name
+                :param cell: section cell
+            '''
+            pass
+
+
+class Section(baseSection):
     ''' Interface to a Hoc Section with nseg=1. '''
 
     stimon_var = 'stimon'
@@ -352,8 +378,9 @@ class Section(nrn.Section):
             :param name: section name
             :param cell: section cell
             :param Cm0: resting membrane capacitance (uF/cm2)
-            :param nrnsec: existing nrn.Section object to upgrade
+            :param nrnsec: existing nrn.Section object to upgrade           
         '''
+        #print(f"self: {self}") returns <deleted section>
         if name is None:
             raise ValueError('section must have a name')
         
@@ -385,15 +412,17 @@ class Section(nrn.Section):
             #self.__dict__.update(nrnsec.__dict__) #not possible, self is a <deleted section> 
             #print('name: ',nrnsec.name,'cell: ',nrnsec.cell)
             #super().__init__(name=name, cell=cell) #creates a new section with the same name and cell
-            super().__init__() #this creates and empty nrn.section (__nrnsec_000001bbfdf0a620)
+            #super().__init__() #this creates and empty nrn.section (__nrnsec_000001bbfdf0a620)
             #self._nrn_sec = nrnsec
-            for attr in dir(nrnsec):
-                if not attr.startswith("__"):  # Exclude internal attributes
-                    setattr(self, attr, getattr(nrnsec, attr))
+            # for attr in dir(nrnsec):
+            #     if not attr.startswith("__"):  # Exclude internal attributes
+            #         setattr(self, attr, getattr(nrnsec, attr))
                     # print(f"attribute name: {attr}")
                     # print("atribute value: ",eval(f"nrnsec.{attr}"))
-            self.nrnsec = nrnsec
-        #ultimately IDEA 1 + 2 has been implemented
+            super().__init__(nrnsec=nrnsec)
+            #self.nrnsec = nrnsec
+            #h.delete(nrnsec) #IDEA
+        #ultimately IDEA 1 + 2 has been implemented => NOT ANYMORE
 
         elif cell is not None: #changed this to elif instead of if
             super().__init__(name=name, cell=cell) # -> section has name: "cell.name"
@@ -474,7 +503,7 @@ class Section(nrn.Section):
             :return: section's self (if x not provided) or of section's only segment (if x provided)
         '''
         if ABERRA:
-            return self.nrnsec(x) if x is not None else self.nrnsec
+            return self.nrnsec(x) if x is not None else self.nrnsec #this should work by using the __getattr__ function #POTENTIAL RISK
         return self(x) if x is not None else self
 
     def setValue(self, key, value, x=None):
@@ -842,7 +871,7 @@ def getCustomConnectSection(section_class):
             if ABERRA:
                 inserted_mechs = [e for e in self.nrnsec.psection()['density_mechs'].keys()] #gives a list of all mechanisms that are inserted in this particular section
                 relevant_mechs = [e for e in inserted_mechs]
-                relevant_mechs.remove('xtra'); relevant_mechs.remove('extracellular'); relevant_mechs.remove('pas')
+                relevant_mechs.remove('xtra'); relevant_mechs.remove('extracellular')#; relevant_mechs.remove('pas')
                 self.relevant_mechs = relevant_mechs
                 self.random_mechname = relevant_mechs[-1] if relevant_mechs else None #put this in commentary after -> temporal solution #POTENTIAL RISK
                 key = self.random_mechname
@@ -875,9 +904,9 @@ def getCustomConnectSection(section_class):
             #print(f'kwargs: {kwargs}') #what are these kwargs? usually it is only an x value (location of segment in section)
             #print((self.nrnsec.psection()['density_mechs'].keys())) #to print the inserted density mechanisms 
             #print(f"{self.getValue('v', **kwargs)} / {self.getVm(**kwargs)} = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #shows how the capacitance is calculate
-            if ABERRA:
-                if 'Myelin' in str(self.nrnsec):
-                    return 1.0 #POTENTIAL RISK -> the capacitance in the myelin sections is never equal to one but for debugging
+            #if ABERRA:
+                #if 'Myelin' in str(self.nrnsec):
+                    #return 1.0 #POTENTIAL RISK -> the capacitance in the myelin sections is never equal to one but for debugging => this is fixed because Vm can be read out of the passive mechanism (pas_eff)
             #print(f"Cm = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #to check the general values of Cm => doesn't deviate much from 1
             return self.getValue('v', **kwargs) / self.getVm(**kwargs)
 
