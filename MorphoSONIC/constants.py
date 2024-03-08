@@ -69,3 +69,5 @@ mech_mapping = {'Ca':'Ca', 'CaHVA':'Ca_HVA', 'CaLVAst':'Ca_LVAst', 'CaDynamicsE2
 mech_mapping_inv = {'Ca': 'Ca', 'Ca_HVA': 'CaHVA', 'Ca_LVAst': 'CaLVAst', 'CaDynamics_E2': 'CaDynamicsE2', 'Ih': 'Ih', 'Im': 'Im', 'K_Pst': 'KPst', 'K_Tst': 'KTst', 'KdShu2007': 'KdShu2007', 'Nap_Et2': 'NapEt2', 'NaTa_t': 'NaTat', 'NaTs2_t': 'NaTs2t', 'ProbAMPANMDA_EMS': 'ProbAMPANMDAEMS', 'ProbGABAAB_EMS': 'ProbGABAABEMS', 'SK_E2': 'SKE2', 'SKv3_1': 'SKv31', 'StochKv': 'StochKv', 'xtra': 'xtra', 'pas_eff': 'paseff'}
 
 ABERRA = 1 #to enable code adaptations for an Aberra cell which has multiple mechanisms (files)
+Cm0_map = {0.02: '0_02', 1.: '', 2.: '2'}
+Cm0_actual = {1.: '', 2.: '2'}
