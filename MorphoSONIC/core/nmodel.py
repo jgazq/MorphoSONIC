@@ -461,16 +461,16 @@ class NeuronModel(metaclass=abc.ABCMeta):
         if not hasattr(self, 'pylkp') or self.pylkp is None:
             self.pylkp = self.getBaselineLookup()
 
-    def setModLookup(self, *args, **kwargs):
+    def setModLookup(self, *args, Cm0=None, **kwargs):
         ''' Get the appropriate model 2D lookup and translate it to Hoc. '''
         # Set Lookup
-        self.setPyLookup(*args, **kwargs)
+        self.setPyLookup(*args, **kwargs, Cm0=Cm0)
 
         # Convert to HOC equivalents and store them as class attributes
         self.Aref, self.Qref, self.lkp = self.Py2ModLookup(self.pylkp)
 
     @staticmethod
-    def setFuncTable(mechname, fname, matrix, xref, yref):
+    def setFuncTable(mechname, fname, matrix, xref, yref, Cm0=None):
         ''' Set the content of a 2-dimensional FUNCTION TABLE of a density mechanism.
 
             :param mechname: name of density mechanism
@@ -494,7 +494,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
             if fname == 'V':
                 for mech in mech_mapping.values():
                     try:
-                        fillTable = getattr(h, f'table_{fname}_{mech}')
+                        if Cm0:
+                            fillTable = getattr(h, f'table_{fname}_{mech}{Cm0_map[Cm0]}')
+                        else:
+                            fillTable = getattr(h, f'table_{fname}_{mech}')
                         fillTable(matrix._ref_x[0][0], nx, xref._ref_x[0], ny, yref._ref_x[0])
                     except:
                         print(f'{mech} has no attribute {fname}')
@@ -502,7 +505,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 #fillTable = getattr(h, f'table_{fname}_K_Pst') #this assumes that the mechanism K_Pst is always present in the chosen cell -> replaced with iteration over all mechanisms
             else:
                 #print(f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
-                fillTable = getattr(h, f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
+                if Cm0:
+                    fillTable = getattr(h, f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}{Cm0_map[Cm0]}')
+                else:
+                    fillTable = getattr(h, f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
         else:
             fillTable = getattr(h, f'table_{fname}_{mechname}') #original line: in case of a single mechanism -> not the case for Aberra cells (multiple mechanisms)
                                                                 #the function table has the following structure in hoc: table_variable_mechname
@@ -515,10 +521,17 @@ class NeuronModel(metaclass=abc.ABCMeta):
             and link them to FUNCTION_TABLEs in the MOD file of the corresponding
             membrane mechanism.
         '''
-        self.setModLookup(*args, **kwargs)
-        logger.debug(f'setting {self.mechname} function tables')
-        for k, v in self.lkp.items():
-            self.setFuncTable(self.mechname, k, v, self.Aref, self.Qref)
+        if Cm0_var:
+            for Cm0fl, Cm0str in Cm0_actual.items():
+                self.setModLookup(*args, **kwargs, Cm0fl)
+                logger.debug(f'setting {self.mechname} function tables')
+                for k, v in self.lkp.items():
+                    self.setFuncTable(self.mechname, k, v, self.Aref, self.Qref)
+        else:
+            self.setModLookup(*args, **kwargs)
+            logger.debug(f'setting {self.mechname} function tables')
+            for k, v in self.lkp.items():
+                self.setFuncTable(self.mechname, k, v, self.Aref, self.Qref)            
 
     @staticmethod
     def fixStimVec(stim, dt):

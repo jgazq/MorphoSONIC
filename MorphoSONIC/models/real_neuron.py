@@ -10,6 +10,7 @@ import numpy as np
 #from ..core import SpatiallyExtendedNeuronModel, addSonicFeatures
 from PySONIC.neurons import getPointNeuron
 from MorphoSONIC.core import SpatiallyExtendedNeuronModel, addSonicFeatures, MechQSection #, FiberNeuronModel
+from ..constants import *
 
 
 class nrn(SpatiallyExtendedNeuronModel):
@@ -114,6 +115,29 @@ class nrn(SpatiallyExtendedNeuronModel):
     #def clearSections, createSections, nonlinear_sections, refsection, seclist, simkey #NeuronModel
 
     #def getMetaArgs, meta #SENM -> added by addSonicFeatures decorator/wrapper
+        
+    def mech_Cm0(distr_mech):
+        """replace the generic mechanism with the specific mechanism based on Cm0"""
+        unexisting_mech = []
+        for sec in h.allsec():
+            #print(sec.psection()['density_mechs'].keys()) #to print all sections with their respective insterted mechanisms
+            #print(f'Cm0_{sec}: {sec.cm}, Ra_{sec}: {sec.Ra}')
+            for mech in sec.psection()['density_mechs'].keys():
+                mech_ext = f"{mech}{Cm0_map[sec.cm]}"
+                if mech == 'pas':
+                    sec.insert('pas_eff')
+                    sec.g_pas_eff = sec.g_pas
+                    sec.e_pas_eff = sec.e_pas
+                    sec.uninsert('pas')
+                elif mech_ext in distr_mech:
+                    if sec.cm != 1:
+                        sec.uninsert(mech)
+                        sec.insert(mech_ext)
+                else:
+                    unexisting_mech.append(mech_ext)
+
+            #sec.Ra = 1e20 # to decouple the different sections from each other
+        print(f'unexisting mechs: {unexisting_mech}')
 
     def createSections(self):
         """create sections by choosing the given cell and put the cell defined in hoc in the variable 'cell' of the class"""
@@ -127,24 +151,27 @@ class nrn(SpatiallyExtendedNeuronModel):
         self.cell = h.cell
         print("self.mechname: ",self.mechname)
 
-        for sec in h.allsec():
-            #print(sec.psection()['density_mechs'].keys()) #to print all sections with their respective insterted mechanisms
-            if 'pas' in sec.psection()['density_mechs'].keys():
-                sec.insert('pas_eff')
-                sec.g_pas_eff = sec.g_pas
-                sec.e_pas_eff = sec.e_pas
-                sec.uninsert('pas')
-                #sec.Ra = 1e20 # to decouple the different sections from each other
-        
+        distr_mech, point_mech = [], []
+
+        mt0 = h.MechanismType(0)
+        mname  = h.ref('')
+        for i in range(mt0.count()):
+            mt0.select(i)
+            mt0.selected(mname)
+            distr_mech.append(mname[0])
+            
+        mt1 = h.MechanismType(1)
+        for i in range(mt1.count()):
+            mt1.select(i)
+            mt1.selected(mname)
+            point_mech.append(mname[0])
+
+        print(f'distributed mechs: {distr_mech}, point process mechs: {point_mech}')
+
+        if Cm0_var:
+            self.mech_Cm0(distr_mech)
+
         #first create a dictionary for every type of compartment by creating a python section wrapper around the nrn section
-        #self.sections = {'soma': {eval(f"'soma{i}'"): e for i,e in enumerate(self.cell.soma)}, 'apical': {eval(f"'apical{i}'"): e for i,e in enumerate(self.cell.apical)}, 'basal': {eval(f"'basal{i}'"): e for i,e in enumerate(self.cell.basal)}, 'node': {eval(f"'node{i}'"): e for i,e in enumerate(h.Node)}, 'myelin': {eval(f"'myelin{i}'"): e for i,e in enumerate(h.Myelin)}, 'unmyelin': {eval(f"'unmyelin{i}'"): e for i,e in enumerate(h.Unmyelin)}} #no axon -> replaced with Node, Myelin and Unmyelin
-        
-        # somas = {eval(f"'soma{i}'"): MechQSection(name = eval(f"'soma[{i}]'"), cell=self, nrnsec=e, mechname=self.mechname) for i,e in enumerate(self.cell.soma)}
-        # apicals = {eval(f"'apical{i}'"): MechQSection(name=eval(f"'apical[{i}]'"), cell=self, nrnsec=e, mechname=self.mechname) for i,e in enumerate(self.cell.apical)}
-        # basals = {eval(f"'basal{i}'"): MechQSection(name=eval(f"'basal[{i}]'"), cell=self, nrnsec=e, mechname=self.mechname) for i,e in enumerate(self.cell.basal)}
-        # nodes = {eval(f"'node{i}'"): MechQSection(name=eval(f"'node[{i}]'"), cell=self, nrnsec=e, mechname=self.mechname) for i,e in enumerate(h.Node)}
-        # myelins = {eval(f"'myelin{i}'"): MechQSection(name=eval(f"'myelin[{i}]'"), cell=self, nrnsec=e, mechname=self.mechname) for i,e in enumerate(h.Myelin)}
-        # unmyelins = {eval(f"'unmyelin{i}'"): MechQSection(name=eval(f"'unmyelin[{i}]'"), cell=self, nrnsec=e, mechname=self.mechname) for i,e in enumerate(h.Unmyelin)}
 
         somas = {eval(f"'soma{i}'"): self.createSection(eval(f"'soma[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.soma)}
         apicals = {eval(f"'apical{i}'"): self.createSection(eval(f"'apical[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.apical)}
@@ -163,14 +190,6 @@ class nrn(SpatiallyExtendedNeuronModel):
         #print('self.nrnseclist',self.nrnseclist) #to check if the creation has been conducted correctly
 
         self.connections = []
-        #check if duplicate sections:
-        # soma_dupl = []
-        # for i,sec in enumerate(h.allsec()):
-        #     #print('first sec: ',sec) if (i==0) else None
-        #     if 'soma' in str(sec):
-        #         soma_dupl.append(sec)
-        #print('last sec: ',sec)
-        #print('somas:\t',soma_dupl) # to check if soma is defined multiple times
 
         for sec in self.seclist:
             #print('sec: ',sec)
@@ -181,23 +200,8 @@ class nrn(SpatiallyExtendedNeuronModel):
                 #print('parent: ',parent,'child',child)
                 self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child)))
             "lines are moved to init of CustomConnectSection"
-            # inserted_mechs = [e for e in sec.nrnsec.psection()['density_mechs'].keys()] #gives a list of all mechanisms that are inserted in this particular section
-            # relevant_mechs = copy.copy(inserted_mechs)
-            # relevant_mechs.remove('xtra'); relevant_mechs.remove('extracellular'); relevant_mechs.remove('pas')
-            # sec.relevant_mechs = relevant_mechs
-            # sec.random_mechname = relevant_mechs[0] if relevant_mechs else None #put this in commentary after -> temporal solution #POTENTIAL RISK
         #print(self.connections)
         print(f'CELL IS CREATED: {len(self.seclist)} sections')
-
-        #for checking Cm0
-        # for sec in h.allsec():
-        #     print(f'Cm0_{sec}: {sec.cm}')
-        # quit()
-        #does the same as above
-        #for sec in self.seclist:
-            #print(f'Cm0_{sec.nrnsec}: {sec.nrnsec.cm}')
-            #print(f'Cm0_{sec.nrnsec}: {sec.nrnsec.Ra}')
-        # to set all the axial currents to zero (for verifiying results)
 
     
     def clearSections(self):
