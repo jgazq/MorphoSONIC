@@ -291,10 +291,10 @@ def addSonicFeatures(Base):
                 })
             return d
 
-        def setPyLookup(self, f=None):
+        def setPyLookup(self, f=None, Cm0=None):
             ''' Add inter_pylkp if needed. '''
             fref = self.fref  # store fref value before call to parent setPyLookup
-            super().setPyLookup(f=f)
+            super().setPyLookup(f=f, Cm0=Cm0)
             if self.has_passive_sections:
                 if f is not None:  # acoustic case: load separate lookup with inter fs
                     if self.inter_pylkp is None or f != fref:

@@ -270,7 +270,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 cvode.active(0)
         else:
             if not cvode.active():
-                cvode.active(1) #apparently it is better to use h.cvode_active(1) instead of h.cvode.active(1) 
+                pass
+                #cvode.active(1) #apparently it is better to use h.cvode_active(1) instead of h.cvode.active(1) 
             if atol is not None:
                 cvode.atol(atol)
 
@@ -461,10 +462,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
         if not hasattr(self, 'pylkp') or self.pylkp is None:
             self.pylkp = self.getBaselineLookup()
 
-    def setModLookup(self, *args, Cm0=None, **kwargs):
+    def setModLookup(self, *args, **kwargs):
         ''' Get the appropriate model 2D lookup and translate it to Hoc. '''
         # Set Lookup
-        self.setPyLookup(*args, **kwargs, Cm0=Cm0)
+        self.setPyLookup(*args, **kwargs)
 
         # Convert to HOC equivalents and store them as class attributes
         self.Aref, self.Qref, self.lkp = self.Py2ModLookup(self.pylkp)
@@ -523,10 +524,11 @@ class NeuronModel(metaclass=abc.ABCMeta):
         '''
         if Cm0_var:
             for Cm0fl, Cm0str in Cm0_actual.items():
-                self.setModLookup(*args, **kwargs, Cm0fl)
+                self.pylkp = None
+                self.setModLookup(*args, Cm0=Cm0fl, **kwargs)
                 logger.debug(f'setting {self.mechname} function tables')
                 for k, v in self.lkp.items():
-                    self.setFuncTable(self.mechname, k, v, self.Aref, self.Qref)
+                    self.setFuncTable(self.mechname, k, v, self.Aref, self.Qref,Cm0=Cm0fl)
         else:
             self.setModLookup(*args, **kwargs)
             logger.debug(f'setting {self.mechname} function tables')

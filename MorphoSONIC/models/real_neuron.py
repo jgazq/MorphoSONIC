@@ -116,7 +116,7 @@ class nrn(SpatiallyExtendedNeuronModel):
 
     #def getMetaArgs, meta #SENM -> added by addSonicFeatures decorator/wrapper
         
-    def mech_Cm0(distr_mech):
+    def mech_Cm0(self, distr_mech):
         """replace the generic mechanism with the specific mechanism based on Cm0"""
         unexisting_mech = []
         for sec in h.allsec():
@@ -125,16 +125,18 @@ class nrn(SpatiallyExtendedNeuronModel):
             for mech in sec.psection()['density_mechs'].keys():
                 mech_ext = f"{mech}{Cm0_map[sec.cm]}"
                 if mech == 'pas':
-                    sec.insert('pas_eff')
-                    sec.g_pas_eff = sec.g_pas
-                    sec.e_pas_eff = sec.e_pas
+                    suffix = f'pas_eff{Cm0_map[sec.cm]}'
+                    sec.insert(suffix)
+                    exec(f'sec.g_{suffix} = sec.g_pas')
+                    exec(f'sec.e_{suffix} = sec.e_pas')
                     sec.uninsert('pas')
                 elif mech_ext in distr_mech:
                     if sec.cm != 1:
                         sec.uninsert(mech)
                         sec.insert(mech_ext)
                 else:
-                    unexisting_mech.append(mech_ext)
+                    if mech_ext not in unexisting_mech:
+                        unexisting_mech.append(mech_ext)
 
             #sec.Ra = 1e20 # to decouple the different sections from each other
         print(f'unexisting mechs: {unexisting_mech}')

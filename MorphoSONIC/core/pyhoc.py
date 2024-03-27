@@ -871,7 +871,9 @@ def getCustomConnectSection(section_class):
             if ABERRA:
                 inserted_mechs = [e for e in self.nrnsec.psection()['density_mechs'].keys()] #gives a list of all mechanisms that are inserted in this particular section
                 relevant_mechs = [e for e in inserted_mechs]
-                relevant_mechs.remove('xtra'); relevant_mechs.remove('extracellular'); relevant_mechs.remove('CaDynamics_E2')#; relevant_mechs.remove('pas')
+                relevant_mechs.remove('xtra') if 'xtra' in relevant_mechs else None
+                relevant_mechs.remove('extracellular') if 'extracellular' in relevant_mechs else None
+                relevant_mechs.remove('CaDynamics_E2') if 'CaDynamics_E2' in relevant_mechs else None#; relevant_mechs.remove('pas')
                 self.relevant_mechs = relevant_mechs
                 self.random_mechname = relevant_mechs[-1] if relevant_mechs else None #put this in commentary after -> temporal solution #POTENTIAL RISK
                 key = self.random_mechname
