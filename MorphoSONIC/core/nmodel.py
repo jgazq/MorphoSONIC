@@ -333,7 +333,9 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 h.FInitializeHandler(1, self.fi1),
                 h.FInitializeHandler(2, self.fi2)
             ]
-        h.finitialize(x0)
+        print('starting h.finitialize')
+        h.finitialize(x0) #BREAKPOINT
+        print('ended h.finitialize')
 
     def fadvanceLogger(self):
         logger.debug(f'fadvance return at t = {h.t:.3f} ms')
@@ -466,9 +468,11 @@ class NeuronModel(metaclass=abc.ABCMeta):
         ''' Get the appropriate model 2D lookup and translate it to Hoc. '''
         # Set Lookup
         self.setPyLookup(*args, **kwargs)
+        #print(f'self.pylkp = {self.pylkp["V"]}')
 
         # Convert to HOC equivalents and store them as class attributes
         self.Aref, self.Qref, self.lkp = self.Py2ModLookup(self.pylkp)
+        #print(f'self.lkp = {self.lkp["V"]}')
 
     @staticmethod
     def setFuncTable(mechname, fname, matrix, xref, yref, Cm0=None):
@@ -491,7 +495,28 @@ class NeuronModel(metaclass=abc.ABCMeta):
         # Get the HOC function that fills in a specific FUNCTION_TABLE in a mechanism
         #ASSUMPTION: all the LUT for all mechanisms are loaded in, even if not all function tables need to be used for a specific compartment/cell #POTENTIAL RISK?
         #(different compartment types contain different mech & cells don't have all the available mechs)
-        if 'real' in mechname and 'neuron' in mechname: #also "if ABERRA:" can be used
+        #print(f'setFuncTable mechname:{mechname}, fname: {fname}')
+        if 'real' in mechname and 'neuron' in mechname: #also "if ABERRA:" can be used #BREAKPOINT
+            #DEBUGGING FOR 'alpham_CaHVA'
+            # if fname == 'alpham_CaHVA':
+            #     print(f'setting up FuncTable for: {fname}')
+            #     print(f'matrix: {matrix}')
+            #     """"debugging the LUT"""
+            #     x_val,y_val = 101.64826607291788, 50 #A_t and y value in LUT
+            #     xlijst = []
+            #     ylijst = []
+            #     for i in range(len(xref)):
+            #         xlijst.append(xref[i])
+            #     for i in range(len(yref)):
+            #         ylijst.append(yref[i])
+            #     xlijst = np.array(xlijst)
+            #     ylijst = np.array(ylijst)
+            #     #looks in both reference list and gets the index of the value that is closest to the given value
+            #     x_ind = np.argmin(abs(xlijst-x_val))
+            #     y_ind = np.argmin(abs(ylijst-y_val))
+            #     print(f'\nx index in LUT: {x_ind} for value: {x_val}')
+            #     print(f'y index in LUT: {y_ind} for value: {y_val}')
+            #     print(f'indexed value in LUT: {matrix.x[x_ind][y_ind]}\n')
             if fname == 'V':
                 for mech in mech_mapping.values():
                     try:
@@ -499,11 +524,13 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             fillTable = getattr(h, f'table_{fname}_{mech}{Cm0_map[Cm0]}')
                         else:
                             fillTable = getattr(h, f'table_{fname}_{mech}')
-                        fillTable(matrix._ref_x[0][0], nx, xref._ref_x[0], ny, yref._ref_x[0])
+                        #print(f"fillTable1: {fillTable}")
+                        fillTable(matrix._ref_x[0][0], nx, xref._ref_x[0], ny, yref._ref_x[0]) #call the table filler for every mechanisms that contains V LUT
                     except:
                         print(f'{mech} has no attribute {fname}')
                 #print(f'table_{fname}_K_Pst')
                 #fillTable = getattr(h, f'table_{fname}_K_Pst') #this assumes that the mechanism K_Pst is always present in the chosen cell -> replaced with iteration over all mechanisms
+                return #stop after iterating over different mechanisms as the remainder of the code is not for V LUTs
             else:
                 #print(f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
                 if Cm0:
@@ -515,6 +542,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
                                                                 #the function table has the following structure in hoc: table_variable_mechname
 
         # Call function
+        #print(f"fillTable2: {fillTable}")
         fillTable(matrix._ref_x[0][0], nx, xref._ref_x[0], ny, yref._ref_x[0])
 
     def setFuncTables(self, *args, **kwargs):

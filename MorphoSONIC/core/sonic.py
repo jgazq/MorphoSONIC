@@ -433,7 +433,7 @@ def addSonicFeatures(Base):
 
         def initToSteadyState(self):
             self.network.startLM()
-            super().initToSteadyState()
+            super().initToSteadyState() #BREAKPOINT
 
         def isDynamicCmSource(self, source):
             return isinstance(source, AcousticSource)

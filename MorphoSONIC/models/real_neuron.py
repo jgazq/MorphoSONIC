@@ -2,7 +2,7 @@
 # h.load_file("stdrun.hoc")
 
 import sys
-from neuron import h, gui
+from neuron import h#, gui
 import re
 import copy
 import numpy as np
@@ -168,7 +168,7 @@ class nrn(SpatiallyExtendedNeuronModel):
             mt1.selected(mname)
             point_mech.append(mname[0])
 
-        print(f'distributed mechs: {distr_mech}, point process mechs: {point_mech}')
+        #print(f'distributed mechs: {distr_mech}, point process mechs: {point_mech}')
 
         if Cm0_var:
             self.mech_Cm0(distr_mech)
@@ -186,6 +186,8 @@ class nrn(SpatiallyExtendedNeuronModel):
         self.sections = {'soma': somas, 'apical': apicals, 'basal': basals, 'node': nodes, 'myelin': myelins, 'unmyelin': unmyelins} #no axon -> replaced with Node, Myelin and Unmyelin #
         #self.seclist: contains all python sections in a list
         self.seclist = [*list(somas.values()), *list(apicals.values()), *list(basals.values()), *list(nodes.values()), *list(myelins.values()), *list(unmyelins.values())] #
+        cmarray = np.array([sec.getCm(x=0.5) for sec in self.seclist])
+        print(f'original cm array: {cmarray}')
         #self.nrnseclist: contains all (original) nrn (hoc) sections in a list 
         self.nrnseclist = [e.nrnsec for e in self.seclist]
         #print("len(seclist): ",len(self.seclist)) #to check how many sections are defined
