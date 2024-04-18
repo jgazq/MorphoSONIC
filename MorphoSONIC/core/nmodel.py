@@ -272,6 +272,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
             if not cvode.active():
                 pass
                 #cvode.active(1) #apparently it is better to use h.cvode_active(1) instead of h.cvode.active(1) 
+                #cvode.use_daspk(1) #added daspk option
             if atol is not None:
                 cvode.atol(atol)
 
@@ -402,7 +403,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
         logger.debug(f'integrating system using {self.getIntegrationMethod()}')
         h.t = 0
         #print(f'tstop = {tstop}')
-        while h.t < tstop:
+        while h.t < tstop: #BREAKPOINT
             self.advance()
             #print(f'h.t = {h.t}')
 
@@ -551,6 +552,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
             membrane mechanism.
         '''
         if Cm0_var:
+            #for Cm0fl, Cm0str in {1.: ''}.items(): #only loading in 0.01-variant and skip 0.02
             for Cm0fl, Cm0str in Cm0_actual.items():
                 self.pylkp = None
                 self.setModLookup(*args, Cm0=Cm0fl, **kwargs)

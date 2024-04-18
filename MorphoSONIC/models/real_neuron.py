@@ -118,6 +118,7 @@ class nrn(SpatiallyExtendedNeuronModel):
         
     def mech_Cm0(self, distr_mech):
         """replace the generic mechanism with the specific mechanism based on Cm0"""
+        existing_mech = []
         unexisting_mech = []
         for sec in h.allsec():
             #print(sec.psection()['density_mechs'].keys()) #to print all sections with their respective insterted mechanisms
@@ -126,19 +127,40 @@ class nrn(SpatiallyExtendedNeuronModel):
                 mech_ext = f"{mech}{Cm0_map[sec.cm]}"
                 if mech == 'pas':
                     suffix = f'pas_eff{Cm0_map[sec.cm]}'
+                    # to only insert 0.02-variant mechs
+                    if not suffix.endswith('2'):
+                        suffix+= '2'
+                    #to only insert 0.01-variant mechs
+                    # if suffix.endswith('2') and not suffix.endswith('02'):
+                    #     suffix = suffix[:-1]
                     sec.insert(suffix)
                     exec(f'sec.g_{suffix} = sec.g_pas')
                     exec(f'sec.e_{suffix} = sec.e_pas')
                     sec.uninsert('pas')
+                    if suffix not in existing_mech:
+                        existing_mech.append(suffix)
                 elif mech_ext in distr_mech:
                     if sec.cm != 1:
+                        #to only use 0.01-variants, only put 'pass' out of comments in next section
+                        pass
                         sec.uninsert(mech)
                         sec.insert(mech_ext)
+                    elif 'xtra' not in mech and 'Dynamics' not in mech:
+                        #to only use 0.02-variants, put everything out of comments (pass doesn't matter)
+                        pass
+                        sec.uninsert(mech)
+                        #print(mech+'2')
+                        sec.insert(mech+'2')                        
+                    if mech_ext not in existing_mech:
+                        existing_mech.append(mech_ext)
                 else:
                     if mech_ext not in unexisting_mech:
                         unexisting_mech.append(mech_ext)
 
             #sec.Ra = 1e20 # to decouple the different sections from each other
+        existing_mech.sort()
+        unexisting_mech.sort()
+        print(f'existing mechs: {existing_mech}')
         print(f'unexisting mechs: {unexisting_mech}')
 
     def createSections(self):
@@ -186,8 +208,6 @@ class nrn(SpatiallyExtendedNeuronModel):
         self.sections = {'soma': somas, 'apical': apicals, 'basal': basals, 'node': nodes, 'myelin': myelins, 'unmyelin': unmyelins} #no axon -> replaced with Node, Myelin and Unmyelin #
         #self.seclist: contains all python sections in a list
         self.seclist = [*list(somas.values()), *list(apicals.values()), *list(basals.values()), *list(nodes.values()), *list(myelins.values()), *list(unmyelins.values())] #
-        cmarray = np.array([sec.getCm(x=0.5) for sec in self.seclist])
-        print(f'original cm array: {cmarray}')
         #self.nrnseclist: contains all (original) nrn (hoc) sections in a list 
         self.nrnseclist = [e.nrnsec for e in self.seclist]
         #print("len(seclist): ",len(self.seclist)) #to check how many sections are defined

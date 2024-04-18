@@ -902,14 +902,14 @@ def getCustomConnectSection(section_class):
             return self.getValue(f'_ref_{self.vref}', **kwargs)
 
         def getCm(self, **kwargs):
-            #print(f'\nself.nrnsec: {self.nrnsec}, self.vref: {self.vref}')
-            #print(f'kwargs: {kwargs}') #what are these kwargs? usually it is only an x value (location of segment in section)
-            #print((self.nrnsec.psection()['density_mechs'].keys())) #to print the inserted density mechanisms 
-            #print(f"{self.getValue('v', **kwargs)} / {self.getVm(**kwargs)} = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #shows how the capacitance is calculate
-            #if ABERRA:
-                #if 'Myelin' in str(self.nrnsec):
-                    #return 1.0 #POTENTIAL RISK -> the capacitance in the myelin sections is never equal to one but for debugging => this is fixed because Vm can be read out of the passive mechanism (pas_eff)
-            #print(f"Cm = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #to check the general values of Cm => doesn't deviate much from 1
+            if str(self.nrnsec).endswith('[0]'): #only print once for every type of compartment
+                "DEBUG LINES"
+                #print(f'\nself.nrnsec: {self.nrnsec}, self.vref: {self.vref}')
+                #print(f'kwargs: {kwargs}') #what are these kwargs? usually it is only an x value (location of segment in section)
+                #print((self.nrnsec.psection()['density_mechs'].keys())) #to print the inserted density mechanisms 
+                #print(f"{self.getValue('v', **kwargs)} / {self.getVm(**kwargs)} = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #shows how the capacitance is calculated #BREAKPOINT
+                #print(f"Cm = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #to check the general values of Cm => doesn't deviate much from 1
+                pass
             return self.getValue('v', **kwargs) / self.getVm(**kwargs)
 
         def connect(self, parent):
