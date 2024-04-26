@@ -127,12 +127,12 @@ class nrn(SpatiallyExtendedNeuronModel):
                 mech_ext = f"{mech}{Cm0_map[sec.cm]}"
                 if mech == 'pas':
                     suffix = f'pas_eff{Cm0_map[sec.cm]}'
-                    # to only insert 0.02-variant mechs
+                    #following 4 lines: -all in comment: both -last two in comment: only 0.02 -first two in comment or nothing in comment: only 0.01 (end)
                     if not suffix.endswith('2'):
                         suffix+= '2'
-                    #to only insert 0.01-variant mechs
                     # if suffix.endswith('2') and not suffix.endswith('02'):
                     #     suffix = suffix[:-1]
+                    #end
                     sec.insert(suffix)
                     exec(f'sec.g_{suffix} = sec.g_pas')
                     exec(f'sec.e_{suffix} = sec.e_pas')
@@ -140,17 +140,18 @@ class nrn(SpatiallyExtendedNeuronModel):
                     if suffix not in existing_mech:
                         existing_mech.append(suffix)
                 elif mech_ext in distr_mech:
+                    #following 4 (un)insert lines: -all in comment: only 0.01 -nothing in comment: only 0.02 -last two in comment: both -first two in comment: all 0.01 become 0.02 and vice versa (end)
                     if sec.cm != 1:
-                        #to only use 0.01-variants, only put 'pass' out of comments in next section
                         pass
                         sec.uninsert(mech)
                         sec.insert(mech_ext)
                     elif 'xtra' not in mech and 'Dynamics' not in mech:
-                        #to only use 0.02-variants, put everything out of comments (pass doesn't matter)
                         pass
-                        sec.uninsert(mech)
                         #print(mech+'2')
-                        sec.insert(mech+'2')                        
+                        sec.uninsert(mech)
+                        sec.insert(mech+'2')    
+                    #end        
+                    #for only 0.01: also adapt setFuncTables in nmodel.py                
                     if mech_ext not in existing_mech:
                         existing_mech.append(mech_ext)
                 else:
@@ -194,6 +195,14 @@ class nrn(SpatiallyExtendedNeuronModel):
 
         if Cm0_var:
             self.mech_Cm0(distr_mech)
+        else:
+            for sec in h.allsec():
+                for mech in sec.psection()['density_mechs'].keys():
+                    if mech == 'pas':
+                        sec.insert('pas_eff')
+                        exec(f'sec.g_pas_eff = sec.g_pas')
+                        exec(f'sec.e_pas_eff = sec.e_pas')
+                        sec.uninsert('pas')
 
         #first create a dictionary for every type of compartment by creating a python section wrapper around the nrn section
 

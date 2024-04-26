@@ -253,7 +253,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
         if nrnsec:
             kwargs.update({'nrnsec': nrnsec})
         secclass = self.getSectionClass(mech)
-        #print('secclas: ',secclass) #to check which section class is chosen
+        #print('secclass: ',secclass) #to check which section class is chosen
         return secclass(*args, **kwargs)
 
     def setTimeProbe(self):
@@ -535,6 +535,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
             else:
                 #print(f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
                 if Cm0:
+                    #fillTable = getattr(h, f'table_{fname}{Cm0_map[Cm0]}_{mech_mapping[fname.split("_")[-1]]}{Cm0_map[Cm0]}') #to distinguish tables from 0.01-variant and 0.02-variant (LUT2)
                     fillTable = getattr(h, f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}{Cm0_map[Cm0]}')
                 else:
                     fillTable = getattr(h, f'table_{fname}_{mech_mapping[fname.split("_")[-1]]}')
