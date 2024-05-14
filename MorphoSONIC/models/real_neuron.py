@@ -128,8 +128,8 @@ class nrn(SpatiallyExtendedNeuronModel):
                 if mech == 'pas':
                     suffix = f'pas_eff{Cm0_map[sec.cm]}'
                     #following 4 lines: -all in comment: both -last two in comment: only 0.02 -first two in comment or nothing in comment: only 0.01 (end)
-                    if not suffix.endswith('2'):
-                        suffix+= '2'
+                    # if not suffix.endswith('2'):
+                    #     suffix+= '2'
                     # if suffix.endswith('2') and not suffix.endswith('02'):
                     #     suffix = suffix[:-1]
                     #end
@@ -148,8 +148,8 @@ class nrn(SpatiallyExtendedNeuronModel):
                     elif 'xtra' not in mech and 'Dynamics' not in mech:
                         pass
                         #print(mech+'2')
-                        sec.uninsert(mech)
-                        sec.insert(mech+'2')    
+                        # sec.uninsert(mech)
+                        # sec.insert(mech+'2')    
                     #end        
                     #for only 0.01: also adapt setFuncTables in nmodel.py                
                     if mech_ext not in existing_mech:
@@ -158,7 +158,7 @@ class nrn(SpatiallyExtendedNeuronModel):
                     if mech_ext not in unexisting_mech:
                         unexisting_mech.append(mech_ext)
 
-            #sec.Ra = 1e20 # to decouple the different sections from each other
+            sec.Ra = 1e20 # to decouple the different sections from each other
         existing_mech.sort()
         unexisting_mech.sort()
         print(f'existing mechs: {existing_mech}')
