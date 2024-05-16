@@ -334,9 +334,9 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 h.FInitializeHandler(1, self.fi1),
                 h.FInitializeHandler(2, self.fi2)
             ]
-        print('starting h.finitialize')
+        #print('starting h.finitialize')
         h.finitialize(x0) #BREAKPOINT
-        print('ended h.finitialize')
+        #print('ended h.finitialize')
 
     def fadvanceLogger(self):
         logger.debug(f'fadvance return at t = {h.t:.3f} ms')
@@ -476,6 +476,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
         # Convert to HOC equivalents and store them as class attributes
         self.Aref, self.Qref, self.lkp = self.Py2ModLookup(self.pylkp)
+        self.Qextref = h.Vector(self.pylkp.Q_ext * C_M2_TO_NC_CM2)
 
     @staticmethod
     def setFuncTable(mechname, fname, matrix, xref, yref, Cm0=None):
@@ -507,7 +508,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             fillTable = getattr(h, f'table_{fname}_{mech}{Cm0_map[Cm0]}')
                         elif Cm0_var2: #when using Cm0_var2, no iteration over Cm0's so Cm0 = None
                             #print(f'table_V_{mech}')
-                            fillTable = getattr(h, f'table_V_{mech}') #both variants have 'V' as defined table but V or V2 is loaded depending on which variant
+                            if fname == 'V':
+                                fillTable = getattr(h, f'table_V_{mech}') #both variants have 'V' as defined table but V or V2 is loaded depending on which variant
+                            else:
+                                fillTable = getattr(h, f'table_V_{mech}2')
                         else:
                             fillTable = getattr(h, f'table_{fname}_{mech}')
                         #print(f"fillTable1: {fillTable}")
@@ -578,7 +582,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
             self.setModLookup(*args, **kwargs)
             logger.debug(f'setting {self.mechname} function tables')
             for k, v in self.lkp.items():
-                self.setFuncTable(self.mechname, k, v, self.Aref, self.Qref)
+                if v.ncol() == self.Qref.size():
+                    self.setFuncTable(self.mechname, k, v, self.Aref, self.Qref)
+                else:
+                    self.setFuncTable(self.mechname, k, v, self.Aref, self.Qextref)
         else:
             self.setModLookup(*args, **kwargs)
             logger.debug(f'setting {self.mechname} function tables')
@@ -885,6 +892,7 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
         '''
         # Reset time to zero (redundant, but helps with clarity during debugging)
         h.t = 0
+        #print(f'h.dt = {h.dt}');h.dt *= 0.1
         
         # Set distributed drives
         self.setDrives(source)

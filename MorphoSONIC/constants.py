@@ -71,7 +71,7 @@ mech_mapping_inv = {'Ca': 'Ca', 'Ca_HVA': 'CaHVA', 'Ca_LVAst': 'CaLVAst', 'CaDyn
 ABERRA = 1 #to enable code adaptations for an Aberra cell which has multiple mechanisms (mechanism files)
 Cm0_var = 0 #to enable adaptations in the code when taking into account Cm0 variations along the sections
 sep_12 = 0 #lookups for 0.01 and 0.02 are separated (done in parallel instead of in series)
-Cm0_var2 = 0 #also considers Cm0 variations but different implementation: LUT and LUT2
+Cm0_var2 = 1 #also considers Cm0 variations but different implementation: LUT and LUT2
 
 Cm0_map = {0.02: '0_02', 1.: '', 2.: '2'}
 Cm0_actual = {1.: '', 2.: '2'}

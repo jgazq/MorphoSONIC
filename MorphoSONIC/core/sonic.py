@@ -137,7 +137,7 @@ def addSonicFeatures(Base):
         def setPyLookup(self, f=None, Cm0=None):
             if f is not None:
                 if self.pylkp is None or f != self.fref:
-                    self.pylkp = self.nbls.getLookup2D(f, self.fs, Cm0=Cm0)
+                    self.pylkp = self.nbls.getLookup2D(f, self.fs, Cm0=Cm0) #BREAKPOINT
                     self.fref = f
             else:
                 super().setPyLookup()

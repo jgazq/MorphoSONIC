@@ -158,7 +158,7 @@ class nrn(SpatiallyExtendedNeuronModel):
                     if mech_ext not in unexisting_mech:
                         unexisting_mech.append(mech_ext)
 
-            sec.Ra = 1e20 # to decouple the different sections from each other
+            #sec.Ra = 1e20 # to decouple the different sections from each other
         existing_mech.sort()
         unexisting_mech.sort()
         print(f'existing mechs: {existing_mech}')
@@ -174,7 +174,7 @@ class nrn(SpatiallyExtendedNeuronModel):
         # h(f"chdir({new_dir})") #change directory
         #self.cell = h.cADpyr229_L23_PC_8ef1aa6602(se) #class object based on defined template
         self.cell = h.cell
-        print("self.mechname: ",self.mechname)
+        #print("self.mechname: ",self.mechname)
 
         distr_mech, point_mech = [], []
 
@@ -193,7 +193,7 @@ class nrn(SpatiallyExtendedNeuronModel):
 
         #print(f'distributed mechs: {distr_mech}, point process mechs: {point_mech}')
 
-        if Cm0_var:
+        if Cm0_var or Cm0_var2:
             self.mech_Cm0(distr_mech)
         else:
             for sec in h.allsec():
@@ -203,6 +203,7 @@ class nrn(SpatiallyExtendedNeuronModel):
                         exec(f'sec.g_pas_eff = sec.g_pas')
                         exec(f'sec.e_pas_eff = sec.e_pas')
                         sec.uninsert('pas')
+                sec.Ra = 1e20 # to decouple the different sections from each other
 
         #first create a dictionary for every type of compartment by creating a python section wrapper around the nrn section
 
