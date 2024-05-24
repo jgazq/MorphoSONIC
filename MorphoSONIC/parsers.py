@@ -129,6 +129,9 @@ class SpatiallyExtendedParser(Parser):
                 raise ValueError('"--section all" not available in standard plotting mode. Try adding "--compare" to enable comparative mode')
             for key in args['section']:
                 scheme_plot = SectionGroupedTimeSeries(key, outputs, pltscheme=args['pltscheme'])
+                if ABERRA:
+                    render_args['fiber'] = args['fiber']
+                    render_args['ref_loc'] = args['ref_loc']
                 scheme_plot.render(**render_args)
         plt.show()
 

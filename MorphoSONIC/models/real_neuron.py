@@ -157,8 +157,9 @@ class nrn(SpatiallyExtendedNeuronModel):
                 else:
                     if mech_ext not in unexisting_mech:
                         unexisting_mech.append(mech_ext)
-
-            #sec.Ra = 1e20 # to decouple the different sections from each other
+            sec.v = -75*sec.cm
+            #print(sec.v)
+            sec.Ra = 1e20 # to decouple the different sections from each other
         existing_mech.sort()
         unexisting_mech.sort()
         print(f'existing mechs: {existing_mech}')
@@ -236,6 +237,7 @@ class nrn(SpatiallyExtendedNeuronModel):
             "lines are moved to init of CustomConnectSection"
         #print(self.connections)
         print(f'CELL IS CREATED: {len(self.seclist)} sections')
+        self.loc_soma = (somas['soma0'].x_xtra, somas['soma0'].y_xtra, somas['soma0'].z_xtra)
 
     
     def clearSections(self):
@@ -301,6 +303,7 @@ class Realnrn(nrn):
         self.createSections()
         #self.inactivateTerminal() #TT
         #print(getattr(h, f'table_V_Ca_HVA')) #test if this attribute can be accessed -> OK
+        self.folder = 'cells\\'+h.cell_names[cell_nr-1].s
 
 """"TESTING"""
 #realnrn = Realnrn()#(cell_nr=7,se=0)      

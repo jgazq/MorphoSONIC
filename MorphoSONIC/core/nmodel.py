@@ -10,6 +10,7 @@ from neuron import h
 import numpy as np
 import pandas as pd
 from scipy import stats
+import time
 
 from PySONIC.core import Model, PointNeuron, BilayerSonophore, EffectiveVariablesDict
 from PySONIC.core.timeseries import TimeSeries, SpatiallyExtendedTimeSeries
@@ -271,8 +272,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
         else:
             if not cvode.active():
                 pass
-                #cvode.active(1) #apparently it is better to use h.cvode_active(1) instead of h.cvode.active(1) 
-                #cvode.use_daspk(1) #added daspk option
+                # cvode.active(1) #apparently it is better to use h.cvode_active(1) instead of h.cvode.active(1) 
+                # cvode.use_daspk(1) #added daspk option
             if atol is not None:
                 cvode.atol(atol)
 
@@ -335,7 +336,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 h.FInitializeHandler(2, self.fi2)
             ]
         #print('starting h.finitialize')
-        h.finitialize(x0) #BREAKPOINT
+        h.finitialize() #(x0) #BREAKPOINT
         #print('ended h.finitialize')
 
     def fadvanceLogger(self):
@@ -404,6 +405,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
         h.t = 0
         #print(f'tstop = {tstop}')
         while h.t < tstop: #BREAKPOINT
+            #time.sleep(5)
+            #print(f'\n\n new timestep: {h.t}\n\n')
             self.advance()
             #print(f'h.t = {h.t}')
 
