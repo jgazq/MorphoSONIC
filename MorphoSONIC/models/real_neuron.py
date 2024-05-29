@@ -140,6 +140,11 @@ class nrn(SpatiallyExtendedNeuronModel):
                     if suffix not in existing_mech:
                         existing_mech.append(suffix)
                 elif mech_ext in distr_mech:
+                    if self.increased_gNa:
+                        if 'Na' in mech:
+                            #print(f"before\t\t{mech}: {eval(f'sec.g{mech}bar_{mech}')}")
+                            exec(f'sec.g{mech}bar_{mech} = 10*sec.g{mech}bar_{mech}')
+                            #print(f"after\t\t{mech}: {eval(f'sec.g{mech}bar_{mech}')}")
                     #following 4 (un)insert lines: -all in comment: only 0.01 -nothing in comment: only 0.02 -last two in comment: both -first two in comment: all 0.01 become 0.02 and vice versa (end)
                     if sec.cm != 1:
                         pass
@@ -157,9 +162,10 @@ class nrn(SpatiallyExtendedNeuronModel):
                 else:
                     if mech_ext not in unexisting_mech:
                         unexisting_mech.append(mech_ext)
-            sec.v = -75*sec.cm
+            sec.v = -75*sec.cm #
             #print(sec.v)
-            sec.Ra = 1e20 # to decouple the different sections from each other
+            if self.decoupling:
+                sec.Ra = 1e20 # to decouple the different sections from each other
         existing_mech.sort()
         unexisting_mech.sort()
         print(f'existing mechs: {existing_mech}')
@@ -204,7 +210,8 @@ class nrn(SpatiallyExtendedNeuronModel):
                         exec(f'sec.g_pas_eff = sec.g_pas')
                         exec(f'sec.e_pas_eff = sec.e_pas')
                         sec.uninsert('pas')
-                sec.Ra = 1e20 # to decouple the different sections from each other
+                if self.decoupling:
+                    sec.Ra = 1e20 # to decouple the different sections from each other
 
         #first create a dictionary for every type of compartment by creating a python section wrapper around the nrn section
 
@@ -294,9 +301,12 @@ class Realnrn(nrn):
     simkey = 'realistic_cort'
 
     def __init__(self,cell_nr,se=0,**kwargs):
-        print(f'Realnrn init: {super()}')
+        #print(f'Realnrn init: {super()}')
         self.synapses_enabled = se
         self.cell_nr = cell_nr
+        ''''DEBUG variables'''
+        self.decoupling = True
+        self.increased_gNa = 0
         #h("strdef cell_name") #variable is defined to get assigned below
         h.load_file("init.hoc")
         #h(f"cell_name = \"{h.cell_names[cell_nr-1].s}\"") #this variable is unfortunately not recognized in the morphology.hoc file
