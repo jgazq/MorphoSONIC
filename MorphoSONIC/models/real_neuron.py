@@ -121,6 +121,7 @@ class nrn(SpatiallyExtendedNeuronModel):
         existing_mech = []
         unexisting_mech = []
         for sec in h.allsec():
+            print(sec.v)
             #print(sec.psection()['density_mechs'].keys()) #to print all sections with their respective insterted mechanisms
             #print(f'Cm0_{sec}: {sec.cm}, Ra_{sec}: {sec.Ra}')
             for mech in sec.psection()['density_mechs'].keys():
@@ -166,10 +167,13 @@ class nrn(SpatiallyExtendedNeuronModel):
             #print(sec.v)
             if self.decoupling:
                 sec.Ra = 1e20 # to decouple the different sections from each other
+        for sec_soma in self.cell.soma: #redefine the voltage of the soma as this value adapts when changing v of other sections
+            sec_soma.v = -75*sec_soma.cm
         existing_mech.sort()
         unexisting_mech.sort()
         print(f'existing mechs: {existing_mech}')
         print(f'unexisting mechs: {unexisting_mech}')
+        quit()
 
     def createSections(self):
         """create sections by choosing the given cell and put the cell defined in hoc in the variable 'cell' of the class"""
@@ -201,7 +205,7 @@ class nrn(SpatiallyExtendedNeuronModel):
         #print(f'distributed mechs: {distr_mech}, point process mechs: {point_mech}')
 
         if Cm0_var or Cm0_var2:
-            self.mech_Cm0(distr_mech)
+            self.mech_Cm0(distr_mech) #BREAKPOINT
         else:
             for sec in h.allsec():
                 for mech in sec.psection()['density_mechs'].keys():
@@ -305,7 +309,7 @@ class Realnrn(nrn):
         self.synapses_enabled = se
         self.cell_nr = cell_nr
         ''''DEBUG variables'''
-        self.decoupling = True
+        self.decoupling = 1
         self.increased_gNa = 0
         #h("strdef cell_name") #variable is defined to get assigned below
         h.load_file("init.hoc")

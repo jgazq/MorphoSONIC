@@ -403,12 +403,12 @@ class NeuronModel(metaclass=abc.ABCMeta):
     def integrateUntil(self, tstop):
         logger.debug(f'integrating system using {self.getIntegrationMethod()}')
         h.t = 0
-        #print(f'tstop = {tstop}')
+        print(f'tstop = {tstop}')
         while h.t < tstop: #BREAKPOINT
             #time.sleep(5)
             #print(f'\n\n new timestep: {h.t}\n\n')
             self.advance()
-            #print(f'h.t = {h.t}')
+            print(f'h.t = {h.t}')
 
     def advance(self):
         ''' Advance simulation onto the next time step. '''
@@ -445,6 +445,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
         Qref = h.Vector(pylkp.refs['Q'] * C_M2_TO_NC_CM2)
 
         # Convert lookup tables to hoc matrices
+        if ABERRA: #no conversion needed
+            S_TO_MS = 1 #LUT for Aberra cells contain gating parameter in 1/ms instead of 1/s
         matrix_dict = {'V': Matrix.from_array(pylkp['V'])}  # mV
         if Cm0_var2: #and also Cm0_var? NO
             matrix_dict['V2'] = Matrix.from_array(pylkp['V2']) #mV
@@ -914,7 +916,8 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
                         no_probes.append(sec.nrnsec)             
                 else:
                     all_probes[k] = sec.setProbes() #puts a probe for every section in a dictionary
-        print(f'No probes for these sections: {no_probes}\n')
+        if len(no_probes) > 0: #only print if there is a probeless section
+            print(f'No probes for these sections: {no_probes}\n')
 
         # Integrate model
         self.integrate(pp, dt, atol)

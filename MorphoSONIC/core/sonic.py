@@ -503,8 +503,8 @@ def addSonicFeatures(Base):
         def simulate(self, *args, **kwargs):
             ''' Add axial currents to solution. '''
             sp_ext_sol, meta = super().simulate(*args, **kwargs)
-            print(f"super(): {super()}")
-            print(f'sonic simulate:\nsp_ext_sol: {sp_ext_sol}\nmeta: {meta}\n')
+            #print(f"super(): {super()}")
+            #print(f'sonic simulate:\nsp_ext_sol: {sp_ext_sol}\nmeta: {meta}\n')
             self.addIaxToSolution(sp_ext_sol)
             return sp_ext_sol, meta
 

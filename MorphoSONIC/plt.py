@@ -44,6 +44,8 @@ class SectionGroupedTimeSeries(GroupedTimeSeries):
             data, meta = loadData(entry, frequency)
         else:
             data, meta = entry
+            # for e in data.keys(): #for printing v/Qm after the simulation for all sections
+            #     print(e,data[e]['Qm'][0])
         if self.section_id == 'center':
             data = data[data.centralkey]
         else:
