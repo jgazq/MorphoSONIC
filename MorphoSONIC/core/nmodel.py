@@ -273,7 +273,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
             if not cvode.active():
                 pass
                 # cvode.active(1) #apparently it is better to use h.cvode_active(1) instead of h.cvode.active(1) 
-                # cvode.use_daspk(1) #added daspk option
+                cvode.use_daspk(1) #added daspk option
             if atol is not None:
                 cvode.atol(atol)
 
@@ -403,12 +403,15 @@ class NeuronModel(metaclass=abc.ABCMeta):
     def integrateUntil(self, tstop):
         logger.debug(f'integrating system using {self.getIntegrationMethod()}')
         h.t = 0
+        t_next, t_step = 10, 10
         print(f'tstop = {tstop}')
         while h.t < tstop: #BREAKPOINT
             #time.sleep(5)
             #print(f'\n\n new timestep: {h.t}\n\n')
             self.advance()
-            print(f'h.t = {h.t}')
+            if h.t > t_next:
+                print(f'h.t = {h.t}')
+                t_next += t_step
 
     def advance(self):
         ''' Advance simulation onto the next time step. '''

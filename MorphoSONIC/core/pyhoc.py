@@ -533,6 +533,7 @@ class Section(baseSection):
             :param var: range variable to record
             :return: recording probe object
         '''
+        #print(var)
         return Probe(self.getValue(f'_ref_{var}', x=loc), **kwargs)
 
     @property

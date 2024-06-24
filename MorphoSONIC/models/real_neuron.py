@@ -6,6 +6,7 @@ from neuron import h#, gui
 import re
 import copy
 import numpy as np
+import time
 
 #from ..core import SpatiallyExtendedNeuronModel, addSonicFeatures
 from PySONIC.neurons import getPointNeuron
@@ -121,10 +122,13 @@ class nrn(SpatiallyExtendedNeuronModel):
         existing_mech = []
         unexisting_mech = []
         for sec in h.allsec():
-            print(sec.v)
             #print(sec.psection()['density_mechs'].keys()) #to print all sections with their respective insterted mechanisms
             #print(f'Cm0_{sec}: {sec.cm}, Ra_{sec}: {sec.Ra}')
             for mech in sec.psection()['density_mechs'].keys():
+                if 'I' in mech:
+                    #print(mech)
+                    sec.uninsert(mech)
+                    continue
                 mech_ext = f"{mech}{Cm0_map[sec.cm]}"
                 if mech == 'pas':
                     suffix = f'pas_eff{Cm0_map[sec.cm]}'
@@ -144,13 +148,15 @@ class nrn(SpatiallyExtendedNeuronModel):
                     if self.increased_gNa:
                         if 'Na' in mech:
                             #print(f"before\t\t{mech}: {eval(f'sec.g{mech}bar_{mech}')}")
-                            exec(f'sec.g{mech}bar_{mech} = 10*sec.g{mech}bar_{mech}')
+                            exec(f'sec.g{mech}bar_{mech} = 0')
+                            #exec(f'sec.g{mech}bar_{mech} = 10*sec.g{mech}bar_{mech}')
                             #print(f"after\t\t{mech}: {eval(f'sec.g{mech}bar_{mech}')}")
                     #following 4 (un)insert lines: -all in comment: only 0.01 -nothing in comment: only 0.02 -last two in comment: both -first two in comment: all 0.01 become 0.02 and vice versa (end)
                     if sec.cm != 1:
                         pass
-                        sec.uninsert(mech)
                         sec.insert(mech_ext)
+                        exec(f'sec.g{mech}bar_{mech_ext} = sec.g{mech}bar_{mech} ')
+                        sec.uninsert(mech)
                     elif 'xtra' not in mech and 'Dynamics' not in mech:
                         pass
                         #print(mech+'2')
@@ -169,11 +175,33 @@ class nrn(SpatiallyExtendedNeuronModel):
                 sec.Ra = 1e20 # to decouple the different sections from each other
         for sec_soma in self.cell.soma: #redefine the voltage of the soma as this value adapts when changing v of other sections
             sec_soma.v = -75*sec_soma.cm
+        for sec in h.allsec():
+            if not 'dend' in str(sec):
+                continue
+            # print(sec)
+            # for mech in sec.psection()['density_mechs'].keys():
+            #     print(mech)
+            # print(sec.ihcn_Ih2)
+            try:
+                print(sec.gIhbar_Ih)
+                print(sec.ehcn)
+                print(sec)
+                print(sec.cm)
+                print('')
+            except:
+                try:
+                    print(sec.gIhbar_Ih2)
+                    print(sec.ehcn2)
+                    print(sec)
+                    print(sec.cm)
+                    print('')
+                except:
+                    None
         existing_mech.sort()
         unexisting_mech.sort()
         print(f'existing mechs: {existing_mech}')
         print(f'unexisting mechs: {unexisting_mech}')
-        quit()
+        #quit()
 
     def createSections(self):
         """create sections by choosing the given cell and put the cell defined in hoc in the variable 'cell' of the class"""
