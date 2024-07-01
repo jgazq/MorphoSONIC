@@ -123,10 +123,21 @@ class nrn(SpatiallyExtendedNeuronModel):
         unexisting_mech = []
         for sec in h.allsec():
             #print(sec.psection()['density_mechs'].keys()) #to print all sections with their respective insterted mechanisms
+            inserted_mechs = [e for e in sec.psection()['density_mechs'].keys()] #gives a list of all mechanisms that are inserted in this particular section
+            relevant_mechs = [e for e in inserted_mechs]
+            relevant_mechs.remove('xtra') if 'xtra' in relevant_mechs else None
+            relevant_mechs.remove('extracellular') if 'extracellular' in relevant_mechs else None
+            relevant_mechs.remove('CaDynamics_E2') if 'CaDynamics_E2' in relevant_mechs else None
             #print(f'Cm0_{sec}: {sec.cm}, Ra_{sec}: {sec.Ra}')
-            for mech in sec.psection()['density_mechs'].keys():
-                if 'I' in mech:
-                    #print(mech)
+            numb_mech = len(sec.psection()['density_mechs'].keys()) #number of mechanisms in a section
+            for i,mech in enumerate(sec.psection()['density_mechs'].keys()):
+                # if mech == relevant_mechs[-1]:
+                #     print(sec, i, mech)
+                # if i == numb_mech-3:
+                #     continue
+                #     print(mech)
+                if not ('pas' in mech or 'xtra' in mech or 'K' in mech or 'Na' in mech): #or 'Na' in mech or 'I' in mech or 'Ca' in mech or 'K_Tst' in mech or 'K_Pst' in mech): # or 'SKv3_1' in mech):
+                    print(f'deleted:\t\t\t{mech} in {sec}')
                     sec.uninsert(mech)
                     continue
                 mech_ext = f"{mech}{Cm0_map[sec.cm]}"
@@ -182,26 +193,25 @@ class nrn(SpatiallyExtendedNeuronModel):
             # for mech in sec.psection()['density_mechs'].keys():
             #     print(mech)
             # print(sec.ihcn_Ih2)
-            try:
-                print(sec.gIhbar_Ih)
-                print(sec.ehcn)
-                print(sec)
-                print(sec.cm)
-                print('')
-            except:
-                try:
-                    print(sec.gIhbar_Ih2)
-                    print(sec.ehcn2)
-                    print(sec)
-                    print(sec.cm)
-                    print('')
-                except:
-                    None
+            # try:
+            #     print(sec.gIhbar_Ih)
+            #     print(sec.ehcn)
+            #     print(sec)
+            #     print(sec.cm)
+            #     print('')
+            # except:
+            #     try:
+            #         print(sec.gIhbar_Ih2)
+            #         print(sec.ehcn2)
+            #         print(sec)
+            #         print(sec.cm)
+            #         print('')
+            #     except:
+            #         None
         existing_mech.sort()
         unexisting_mech.sort()
         print(f'existing mechs: {existing_mech}')
         print(f'unexisting mechs: {unexisting_mech}')
-        #quit()
 
     def createSections(self):
         """create sections by choosing the given cell and put the cell defined in hoc in the variable 'cell' of the class"""

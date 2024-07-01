@@ -272,10 +272,16 @@ class NeuronModel(metaclass=abc.ABCMeta):
         else:
             if not cvode.active():
                 pass
-                # cvode.active(1) #apparently it is better to use h.cvode_active(1) instead of h.cvode.active(1) 
-                cvode.use_daspk(1) #added daspk option
+                cvode.active(1) #apparently it is better to use h.cvode_active(1) instead of h.cvode.active(1) 
+                #cvode.use_daspk(1) #added daspk option -> this happens automatic because of LinMech and extracellular
             if atol is not None:
                 cvode.atol(atol)
+        print('SET INTEGRATOR:')
+        print(f'before: h.dt = {h.dt*1e3} us'); h.dt *= 0.1; print(f'after: h.dt = {h.dt*1e3} us')
+        print(f'current methods: {cvode.current_method()}')
+        print(self.getIntegrationMethod())
+        print(f'h.secondorder = {h.secondorder}')
+        print('')
 
     def resetIntegrator(self):
         ''' Re-initialize the integrator. '''
@@ -900,7 +906,6 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
         '''
         # Reset time to zero (redundant, but helps with clarity during debugging)
         h.t = 0
-        #print(f'h.dt = {h.dt}');h.dt *= 0.1
         
         # Set distributed drives
         self.setDrives(source)
