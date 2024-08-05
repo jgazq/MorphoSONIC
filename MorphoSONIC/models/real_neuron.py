@@ -136,10 +136,10 @@ class nrn(SpatiallyExtendedNeuronModel):
                 # if i == numb_mech-3:
                 #     continue
                 #     print(mech)
-                if not ('pas' in mech or 'xtra' in mech or 'K' in mech or 'Na' in mech): #or 'Na' in mech or 'I' in mech or 'Ca' in mech or 'K_Tst' in mech or 'K_Pst' in mech): # or 'SKv3_1' in mech):
-                    print(f'deleted:\t\t\t{mech} in {sec}')
-                    sec.uninsert(mech)
-                    continue
+                # if not ('pas' in mech or 'xtra' in mech or 'K' in mech or 'Na' in mech): #or 'Na' in mech or 'I' in mech or 'Ca' in mech or 'K_Tst' in mech or 'K_Pst' in mech): # or 'SKv3_1' in mech):
+                #     print(f'deleted:\t\t\t{mech} in {sec}')
+                #     sec.uninsert(mech)
+                #     continue
                 mech_ext = f"{mech}{Cm0_map[sec.cm]}"
                 if mech == 'pas':
                     suffix = f'pas_eff{Cm0_map[sec.cm]}'
