@@ -95,6 +95,7 @@ class nrn(SpatiallyExtendedNeuronModel):
 
     def print_attr(self):
         """print all attributes of a class instance, both the ones defined in this file as the ones defined in the template.hoc file"""
+
         print(f"\n{'-'*75} python attributes {'-'*75}\n")
         print(*dir(self),sep=',\t')
         print(f"\n{'-'*75} hoc attributes {'-'*75}\n")
@@ -103,6 +104,7 @@ class nrn(SpatiallyExtendedNeuronModel):
  
     def search_attr(self,query):
         """case insensitive search for attributes"""
+
         hits = []
         query = query.lower()
         for e in dir(self):
@@ -119,29 +121,34 @@ class nrn(SpatiallyExtendedNeuronModel):
         
     def mech_Cm0(self, distr_mech):
         """replace the generic mechanism with the specific mechanism based on Cm0"""
+
         existing_mech = []
         unexisting_mech = []
         for sec in h.allsec():
             #print(sec.psection()['density_mechs'].keys()) #to print all sections with their respective insterted mechanisms
             inserted_mechs = [e for e in sec.psection()['density_mechs'].keys()] #gives a list of all mechanisms that are inserted in this particular section
-            relevant_mechs = [e for e in inserted_mechs]
+            relevant_mechs = [e for e in inserted_mechs] #remove the mechanisms that are not voltage gated
             relevant_mechs.remove('xtra') if 'xtra' in relevant_mechs else None
             relevant_mechs.remove('extracellular') if 'extracellular' in relevant_mechs else None
             relevant_mechs.remove('CaDynamics_E2') if 'CaDynamics_E2' in relevant_mechs else None
-            #print(f'Cm0_{sec}: {sec.cm}, Ra_{sec}: {sec.Ra}')
+            #print(f'Cm0_{sec}: {sec.cm}, Ra_{sec}: {sec.Ra}') #to print the membrane capacity and axial resistance
             numb_mech = len(sec.psection()['density_mechs'].keys()) #number of mechanisms in a section
-            for i,mech in enumerate(sec.psection()['density_mechs'].keys()):
-                # if mech == relevant_mechs[-1]:
+            for i,mech in enumerate(sec.psection()['density_mechs'].keys()): #iterate over the different inserted mechanisms of a particular section
+                # if mech == relevant_mechs[-1]: #to check which section is used to probe?
                 #     print(sec, i, mech)
                 # if i == numb_mech-3:
                 #     continue
                 #     print(mech)
-                # if not ('pas' in mech or 'xtra' in mech or 'K' in mech or 'Na' in mech): #or 'Na' in mech or 'I' in mech or 'Ca' in mech or 'K_Tst' in mech or 'K_Pst' in mech): # or 'SKv3_1' in mech):
+                # if not ('pas' in mech or 'xtra' in mech or 'Ca' in mech or 'Na' in mech or 'I' in mech): #or 'Na' in mech or 'I' in mech or 'Ca' in mech or 'K_Tst' in mech or 'K_Pst' in mech): # or 'SKv3_1' in mech): #to remove certain mechanisms (done in try 8)
+                #     print(f'deleted:\t\t\t{mech} in {sec}')
+                #     sec.uninsert(mech)
+                #     continue
+                # if 'SKv3_1' in mech or 'SK_E2' in mech or 'Dynamics' in mech: #
                 #     print(f'deleted:\t\t\t{mech} in {sec}')
                 #     sec.uninsert(mech)
                 #     continue
                 mech_ext = f"{mech}{Cm0_map[sec.cm]}"
-                if mech == 'pas':
+                if mech == 'pas': #different treatment for the passive mechanism
                     suffix = f'pas_eff{Cm0_map[sec.cm]}'
                     #following 4 lines: -all in comment: both -last two in comment: only 0.02 -first two in comment or nothing in comment: only 0.01 (end)
                     # if not suffix.endswith('2'):
@@ -155,13 +162,14 @@ class nrn(SpatiallyExtendedNeuronModel):
                     sec.uninsert('pas')
                     if suffix not in existing_mech:
                         existing_mech.append(suffix)
-                elif mech_ext in distr_mech:
-                    if self.increased_gNa:
+                elif mech_ext in distr_mech: #to insert the right mechanisms variant (0.01 or 0.02)
+                    if self.increased_gNa: #to increase the conductivity of a certain mechanism, for debugging
                         if 'Na' in mech:
                             #print(f"before\t\t{mech}: {eval(f'sec.g{mech}bar_{mech}')}")
                             exec(f'sec.g{mech}bar_{mech} = 0')
                             #exec(f'sec.g{mech}bar_{mech} = 10*sec.g{mech}bar_{mech}')
                             #print(f"after\t\t{mech}: {eval(f'sec.g{mech}bar_{mech}')}")
+                            
                     #following 4 (un)insert lines: -all in comment: only 0.01 -nothing in comment: only 0.02 -last two in comment: both -first two in comment: all 0.01 become 0.02 and vice versa (end)
                     if sec.cm != 1:
                         pass
@@ -173,22 +181,27 @@ class nrn(SpatiallyExtendedNeuronModel):
                         #print(mech+'2')
                         # sec.uninsert(mech)
                         # sec.insert(mech+'2')    
-                    #end        
+                    #end     
+   
                     #for only 0.01: also adapt setFuncTables in nmodel.py                
                     if mech_ext not in existing_mech:
-                        existing_mech.append(mech_ext)
+                        existing_mech.append(mech_ext) #a list containing all the distributed mechanisms and passive mechanisms (which is also a distributed one)
                 else:
                     if mech_ext not in unexisting_mech:
-                        unexisting_mech.append(mech_ext)
-            sec.v = -75*sec.cm #
+                        unexisting_mech.append(mech_ext) #all the other mechanisms
+            sec.v = -75*sec.cm #to initialize the section starting value properly
             #print(sec.v)
-            if self.decoupling:
+            if self.decoupling: #to decouple all sections by putting the axial resistance very high so there is no axial currents to influence other sections
                 sec.Ra = 1e20 # to decouple the different sections from each other
-        for sec_soma in self.cell.soma: #redefine the voltage of the soma as this value adapts when changing v of other sections
+        for sec_soma in self.cell.soma: #redefine the voltage of the soma as this value adapts when changing v of other sections (which is done in this line: sec.v = -75*sec.cm)
             sec_soma.v = -75*sec_soma.cm
-        for sec in h.allsec():
-            if not 'dend' in str(sec):
-                continue
+        # for sec in h.allsec(): #iterate over all sections again for debugging purposes
+        #     if 'soma' in str(sec):
+        #         sec.uninsert('SK_E2')
+        #         sec.uninsert('SKv3_1')
+        #         sec.uninsert('CaDynamics_E2')
+            # if not 'dend' in str(sec):
+            #     continue
             # print(sec)
             # for mech in sec.psection()['density_mechs'].keys():
             #     print(mech)
@@ -215,6 +228,7 @@ class nrn(SpatiallyExtendedNeuronModel):
 
     def createSections(self):
         """create sections by choosing the given cell and put the cell defined in hoc in the variable 'cell' of the class"""
+
         print('creating sections in nrn')
         h.setParamsAdultHuman() 
         h.cell_chooser(self.cell_nr); print('')
@@ -285,6 +299,7 @@ class nrn(SpatiallyExtendedNeuronModel):
                 self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child)))
             "lines are moved to init of CustomConnectSection"
         #print(self.connections)
+        #print(self.seclist)
         print(f'CELL IS CREATED: {len(self.seclist)} sections')
         self.loc_soma = (somas['soma0'].x_xtra, somas['soma0'].y_xtra, somas['soma0'].z_xtra)
 
