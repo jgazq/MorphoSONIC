@@ -479,7 +479,7 @@ class HybridNetwork:
         # Define vector of relative positions in the sections (always at mid-point)
         self.relx = h.Vector([0.5] * self.nsec)
         # Set initial conditions vector
-        self.y0 = h.Vector(self.size)
+        self.y0 = h.Vector(self.size) #len(y0) = # of sections, all initialized at v = 0 (this is default when init in hoc)
         # Define linear mechanism arguments
         lm_args = [self.C, self.G, self.y, self.y0, self.I, self.sl, self.relx]
         # Add update callback for dynamic cm

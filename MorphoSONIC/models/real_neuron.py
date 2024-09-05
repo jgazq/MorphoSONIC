@@ -143,10 +143,10 @@ class nrn(SpatiallyExtendedNeuronModel):
                 #     print(f'deleted:\t\t\t{mech} in {sec}')
                 #     sec.uninsert(mech)
                 #     continue
-                # if 'SKv3_1' in mech or 'SK_E2' in mech or 'Dynamics' in mech: #
-                #     print(f'deleted:\t\t\t{mech} in {sec}')
-                #     sec.uninsert(mech)
-                #     continue
+                if 'SK_E2' in mech or 'Dynamics' in mech: #'SKv3_1' in mech or
+                    print(f'deleted:\t\t\t{mech} in {sec}')
+                    sec.uninsert(mech)
+                    continue
                 mech_ext = f"{mech}{Cm0_map[sec.cm]}"
                 if mech == 'pas': #different treatment for the passive mechanism
                     suffix = f'pas_eff{Cm0_map[sec.cm]}'
