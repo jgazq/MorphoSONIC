@@ -330,7 +330,7 @@ class NeuronParser(SpatiallyExtendedParser):
 
     def __init__(self):
         super().__init__()
-        self.defaults.update({'type': 'realistic_cort', 'x0': 0., 'sigma': 1.}) #sigma is 1mm by default
+        self.defaults.update({'type': 'mini_realistic_cort', 'x0': 0., 'sigma': 1.}) #sigma is 1mm by default
         self.factors.update({'sigma': 1 / M_TO_MM})
         self.addType()
         self.addx0()
@@ -362,7 +362,7 @@ class NeuronParser(SpatiallyExtendedParser):
         if args['section'] == ['center'] and args['compare']:
             raise ValueError(
                 '"center" placeholder for section ID cannot be used when comparing results from models of different sizes')
-        if len(args['section']) > 5 and args['plot'] != ['all'] and not args['compare']:
+        if len(args['section']) > 6 and args['plot'] != ['all'] and not args['compare']: #changed to 6 as there are 6 different sections in the Aberra cells
             logger.warning(
                 'More than 5 morphological sections were specified for plots -> falling back to comparative plot(s)')
             args['compare'] = True

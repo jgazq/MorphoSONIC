@@ -409,15 +409,41 @@ class NeuronModel(metaclass=abc.ABCMeta):
     def integrateUntil(self, tstop):
         logger.debug(f'integrating system using {self.getIntegrationMethod()}')
         h.t = 0
-        t_next, t_step = 10, 10
+        t_next, t_step = 10, 10 #0.0010, 0.0010
         print(f'tstop = {tstop}')
+        N = h.Node[0]
+        M = h.Myelin[0]
+        t = h.t
+        v_M, v_N = 0, 0
         while h.t < tstop: #BREAKPOINT
             #time.sleep(5)
             #print(f'\n\n new timestep: {h.t}\n\n')
             self.advance()
+            dvM = v_M - M.v
+            dvN = v_N - N.v
+            v_M = M.v
+            v_N = N.v
+            C_M = M.cm
+            C_N = N.cm
+            riM = M(1e-3).ri()
+            riN = N(1e-3).ri()
+            A_M = M(1e-3).area()
+            A_N = N(1e-3).area()
+            dt = h.t-t
+            t = h.t
+            iaxM1, iaxN1 = C_M+dvM/dt/A_M,C_N+dvN/dt/A_M
+            iaxM2,iaxN2 = v_M/riM*1e6/A_M,v_N/riN*1e6/A_N
+
+            print('vM, vN = ',v_M,v_N)
+            print('dvM, dvN = ',dvM,dvN)
+            print('riM, riN:',riM,riN)
+            time.sleep(1); quit()
+            #print(h.Myelin[0].v); print(h.Unmyelin[0].v); print(h.Node[0].v)
             if h.t > t_next:
+                #print(dir(h))
                 print(f'h.t = {h.t}')
                 t_next += t_step
+        #quit()
 
     def advance(self):
         ''' Advance simulation onto the next time step. '''

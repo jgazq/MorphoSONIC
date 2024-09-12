@@ -14,7 +14,7 @@ from MorphoSONIC.core import SpatiallyExtendedNeuronModel, addSonicFeatures, Mec
 from ..constants import *
 
 
-class nrn(SpatiallyExtendedNeuronModel):
+class mnrn(SpatiallyExtendedNeuronModel):
     """ Neuron class with methods for E-field stimulation """
 
     _pneuron = getPointNeuron('realneuron')
@@ -125,6 +125,9 @@ class nrn(SpatiallyExtendedNeuronModel):
         existing_mech = []
         unexisting_mech = []
         for sec in h.allsec():
+            if (not ('Myelin[0]' in str(sec) or 'Node[0]' in str(sec) or 'soma' in str(sec))): #str(sec) == 'Node[0]'
+                h.delete_section(sec=sec)
+                continue
             #print(sec.psection()['density_mechs'].keys()) #to print all sections with their respective insterted mechanisms
             inserted_mechs = [e for e in sec.psection()['density_mechs'].keys()] #gives a list of all mechanisms that are inserted in this particular section
             relevant_mechs = [e for e in inserted_mechs] #remove the mechanisms that are not voltage gated
@@ -194,36 +197,8 @@ class nrn(SpatiallyExtendedNeuronModel):
             #print(sec.v)
             if self.decoupling: #and 'Node' not in str(sec): #('apic' not in str(sec) and 'dend' not in str(sec) and 'soma ' not in str(sec)): #to decouple all sections by putting the axial resistance very high so there is no axial currents to influence other sections
                 sec.Ra = 1e20 # to decouple the different sections from each other
-            # else:   
-            #     print(f'connected: {sec}')
-        for sec_soma in self.cell.soma: #redefine the voltage of the soma as this value adapts when changing v of other sections (which is done in this line: sec.v = -75*sec.cm)
-            sec_soma.v = -75*sec_soma.cm
-        # for sec in h.allsec(): #iterate over all sections again for debugging purposes
-        #     if 'soma' in str(sec):
-        #         sec.uninsert('SK_E2')
-        #         sec.uninsert('SKv3_1')
-        #         sec.uninsert('CaDynamics_E2')
-            # if not 'dend' in str(sec):
-            #     continue
-            # print(sec)
-            # for mech in sec.psection()['density_mechs'].keys():
-            #     print(mech)
-            # print(sec.ihcn_Ih2)
-            # try:
-            #     print(sec.gIhbar_Ih)
-            #     print(sec.ehcn)
-            #     print(sec)
-            #     print(sec.cm)
-            #     print('')
-            # except:
-            #     try:
-            #         print(sec.gIhbar_Ih2)
-            #         print(sec.ehcn2)
-            #         print(sec)
-            #         print(sec.cm)
-            #         print('')
-            #     except:
-            #         None
+            for sec_soma in self.cell.soma: #redefine the voltage of the soma as this value adapts when changing v of other sections (which is done in this line: sec.v = -75*sec.cm)
+                sec_soma.v = -75*sec_soma.cm
         existing_mech.sort()
         unexisting_mech.sort()
         print(f'existing mechs: {existing_mech}')
@@ -277,16 +252,14 @@ class nrn(SpatiallyExtendedNeuronModel):
         #first create a dictionary for every type of compartment by creating a python section wrapper around the nrn section
 
         somas = {eval(f"'soma{i}'"): self.createSection(eval(f"'soma[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.soma)}
-        apicals = {eval(f"'apical{i}'"): self.createSection(eval(f"'apical[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.apical)}
-        basals = {eval(f"'basal{i}'"): self.createSection(eval(f"'basal[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.basal)}
-        nodes = {eval(f"'node{i}'"): self.createSection(eval(f"'node[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Node)}
-        myelins = {eval(f"'myelin{i}'"): self.createSection(eval(f"'myelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Myelin)}
-        unmyelins = {eval(f"'unmyelin{i}'"): self.createSection(eval(f"'unmyelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Unmyelin)}
+        nodes = {eval(f"'node{i}'"): self.createSection(eval(f"'node[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate([h.Node[0]])}
+        myelins = {eval(f"'myelin{i}'"): self.createSection(eval(f"'myelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate([h.Myelin[0]])}
+        #unmyelins = {eval(f"'unmyelin{i}'"): self.createSection(eval(f"'unmyelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Unmyelin)}
 
         #self.sections: dicionary contain dictionaries for each type
-        self.sections = {'soma': somas, 'apical': apicals, 'basal': basals, 'node': nodes, 'myelin': myelins, 'unmyelin': unmyelins} #no axon -> replaced with Node, Myelin and Unmyelin #
+        self.sections = {'soma': somas, 'node': nodes, 'myelin': myelins} #, 'unmyelin': unmyelins} #no axon -> replaced with Node, Myelin and Unmyelin #
         #self.seclist: contains all python sections in a list
-        self.seclist = [*list(somas.values()), *list(apicals.values()), *list(basals.values()), *list(nodes.values()), *list(myelins.values()), *list(unmyelins.values())] #
+        self.seclist = [*list(somas.values()), *list(nodes.values()), *list(myelins.values())]
         #self.nrnseclist: contains all (original) nrn (hoc) sections in a list 
         self.nrnseclist = [e.nrnsec for e in self.seclist]
         #print("len(seclist): ",len(self.seclist)) #to check how many sections are defined
@@ -360,17 +333,18 @@ class nrn(SpatiallyExtendedNeuronModel):
 
 
 @addSonicFeatures
-class Realnrn(nrn):
+class Minirealnrn(mnrn):
     """ Realistic Cortical Neuron class - python wrapper around the BBP_neuron hoc-template"""
 
-    simkey = 'realistic_cort'
+    simkey = 'mini_realistic_cort'
 
     def __init__(self,cell_nr,se=0,**kwargs):
         #print(f'Realnrn init: {super()}')
+        print('MINI ENABLED')
         self.synapses_enabled = se
         self.cell_nr = cell_nr
         ''''DEBUG variables'''
-        self.decoupling = 1
+        self.decoupling = 0
         self.increased_gNa = 0
         #h("strdef cell_name") #variable is defined to get assigned below
         h.load_file("init.hoc")

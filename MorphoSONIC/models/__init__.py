@@ -15,6 +15,7 @@ from .double_cable import *
 from .network import *
 from .zreal_model import *
 from .real_neuron import *
+from .mini_realneuron import *
 
 
 def getModelsDict():
