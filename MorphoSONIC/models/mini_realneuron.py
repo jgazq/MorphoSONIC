@@ -274,13 +274,15 @@ class mnrn(SpatiallyExtendedNeuronModel):
                 if ('axon' in str(parent) or 'axon' in str(child)): #or ('Myelin' in str(parent) or 'Myelin' in str(child)): #there is an axon that is still a child of the soma even if they are replaced with nodes, myelin and unmyelin
                     continue
                 #print('parent: ',parent,'child',child)
-                self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child))) #str(parent),str(child),
+                # self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child))) #str(parent),str(child),
             "lines are moved to init of CustomConnectSection"
         #print(self.connections)
         #print(self.seclist)
         # for e in self.connections:
         #     print(e)
         # quit()
+        # for sec in h.allsec():
+        #     h.disconnect(sec=sec)
         print(f'CELL IS CREATED: {len(self.seclist)} sections')
         self.loc_soma = (somas['soma0'].x_xtra, somas['soma0'].y_xtra, somas['soma0'].z_xtra)
 

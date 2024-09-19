@@ -308,6 +308,8 @@ class nrn(SpatiallyExtendedNeuronModel):
         # for e in self.connections:
         #     print(e)
         # quit()
+        for sec in h.allsec():
+            h.disconnect(sec=sec)
         print(f'CELL IS CREATED: {len(self.seclist)} sections')
         self.loc_soma = (somas['soma0'].x_xtra, somas['soma0'].y_xtra, somas['soma0'].z_xtra)
 
@@ -370,7 +372,7 @@ class Realnrn(nrn):
         self.synapses_enabled = se
         self.cell_nr = cell_nr
         ''''DEBUG variables'''
-        self.decoupling = 1
+        self.decoupling = 0
         self.increased_gNa = 0
         #h("strdef cell_name") #variable is defined to get assigned below
         h.load_file("init.hoc")

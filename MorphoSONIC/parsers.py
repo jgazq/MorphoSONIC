@@ -330,7 +330,7 @@ class NeuronParser(SpatiallyExtendedParser):
 
     def __init__(self):
         super().__init__()
-        self.defaults.update({'type': 'mini_realistic_cort', 'x0': 0., 'sigma': 1.}) #sigma is 1mm by default
+        self.defaults.update({'type': 'realistic_cort', 'x0': 0., 'sigma': 1.}) #sigma is 1mm by default
         self.factors.update({'sigma': 1 / M_TO_MM})
         self.addType()
         self.addx0()

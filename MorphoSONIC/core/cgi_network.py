@@ -327,6 +327,7 @@ class HybridNetwork:
         self.use_explicit_iax = use_explicit_iax
         self.setGlobalComponents()
         self.setBaseLayer()
+        #print(self.has_ext_layer)
         if self.has_ext_layer:
             if self.use_explicit_iax:
                 raise ValueError('explicit axial currents not defined for extracellular layers')
@@ -420,6 +421,7 @@ class HybridNetwork:
         # Define Gacm matrix and point it towards G top-left (if no explicit iax)
         self.Gacm = pointerMatrix(NormalizedConductanceMatrix)(
             self.ga, links=self.connections, rnorm=self.Am, cnorm=self.cm)
+        #print(self.Gacm.printf()) ;print('self.Gacm.printf()') ;quit()
         #if ABERRA:
             #print(f'self.eff_sections: {self.eff_sections}') #this list contains which sections have a random_mechname and thus a probe and which have None
             #self.Gacm.rem_rows_cols(self.eff_sections,self.eff_sections) # -> don't remove any columns, all sections need to be included
@@ -525,9 +527,11 @@ class HybridNetwork:
         ''' Update capacitance-dependent network components. '''
         # Update membrane capacitance vector
         self.cm = np.array([sec.getCm(x=0.5) for sec in self.seclist]) #BREAKPOINT
-
+        #print(self.cm)
         # Modify Gacm matrix accordingly
+        #print(self.Gacm.printf())
         self.Gacm.setCNorm(self.cm)
+        #print(self.Gacm.printf())
         # Update iax vector if needed
         if self.use_explicit_iax:
             self.updateIax()
@@ -538,7 +542,7 @@ class HybridNetwork:
             :param Vi: internal potential vector (mV)
             :return: axial current density vector (mA/cm2)
         '''
-        Ga = self.Gacm.scaled(rnorm=np.ones(self.nsec))  # S/cm2
+        Ga = self.Gacm.scaled(rnorm=np.ones(self.nsec))  # S/cm2 #np.ones -> cnorm?
         #print('Vi.shape: ',Vi.shape) #Vi for all 185 sections to know the dimensions of this vector
         #print(f'Ga.shape: ({Ga.ncol()},{Ga.nrow()})') #to know the dimensions of this matrix (gives problems when using Myelin sections without a Vm/Qm)
         return np.array(Ga.mulv(h.Vector(Vi)).to_python())

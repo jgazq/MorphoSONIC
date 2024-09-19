@@ -411,33 +411,41 @@ class NeuronModel(metaclass=abc.ABCMeta):
         h.t = 0
         t_next, t_step = 10, 10 #0.0010, 0.0010
         print(f'tstop = {tstop}')
-        N = h.Node[0]
-        M = h.Myelin[0]
-        t = h.t
-        v_M, v_N = 0, 0
+        # N = h.Node[0]
+        # M = h.Myelin[0]
+        # t = h.t
+        # v_M, v_N = 0, 0
         while h.t < tstop: #BREAKPOINT
             #time.sleep(5)
             #print(f'\n\n new timestep: {h.t}\n\n')
             self.advance()
-            dvM = v_M - M.v
-            dvN = v_N - N.v
-            v_M = M.v
-            v_N = N.v
-            C_M = M.cm
-            C_N = N.cm
-            riM = M(1e-3).ri()
-            riN = N(1e-3).ri()
-            A_M = M(1e-3).area()
-            A_N = N(1e-3).area()
-            dt = h.t-t
-            t = h.t
-            iaxM1, iaxN1 = C_M+dvM/dt/A_M,C_N+dvN/dt/A_M
-            iaxM2,iaxN2 = v_M/riM*1e6/A_M,v_N/riN*1e6/A_N
+            # dvM = v_M - M.v #mV
+            # dvN = v_N - N.v #mV
+            # v_M = M(1e-3).v #mV
+            # v_N = N(1e-3).v #mV
+            # delta_V = v_M-v_N #mV
+            # C_M = M.cm #uF/cm2
+            # C_N = N.cm #uF/cm2
+            # riM = M(0.5).ri() #MOhm
+            # riN = N(0.5).ri() #MOhm
+            # A_M = M(0.5).area() #um2
+            # A_N = N(0.5).area() #um2
+            # dt = h.t-t #ms
+            # t = h.t #ms
+            # #iaxM1, iaxN1 = C_M*dvM/dt,C_N*dvN/dt
+            # iaxM2,iaxN2 = delta_V/(riM+riN)/A_M, delta_V/(riN+riM)/A_N
 
-            print('vM, vN = ',v_M,v_N)
-            print('dvM, dvN = ',dvM,dvN)
-            print('riM, riN:',riM,riN)
-            time.sleep(1); quit()
+            # print('vM, vN = ',v_M,v_N)
+            # print('delta v:',delta_V)
+            # print('dvM, dvN = ',dvM,dvN)
+            # print('riM, riN:',riM,riN)
+            # print('A_M, A_N:',A_M,A_N)
+            # print('C_M, C_N:',C_M,C_N)
+            # print('iaxM1, iaxM2:',iaxM2,iaxN2)
+            # #print('iaxN1, iaxN2:',iaxM1,iaxN1)
+            # print('A_M/A_N',A_M/A_N)
+            # print('iaxN2/iaxM2',iaxN2/iaxM2)
+            # time.sleep(1); quit()
             #print(h.Myelin[0].v); print(h.Unmyelin[0].v); print(h.Node[0].v)
             if h.t > t_next:
                 #print(dir(h))
@@ -480,17 +488,16 @@ class NeuronModel(metaclass=abc.ABCMeta):
         Qref = h.Vector(pylkp.refs['Q'] * C_M2_TO_NC_CM2)
 
         # Convert lookup tables to hoc matrices
-        if ABERRA: #no conversion needed
-            S_TO_MS = 1 #LUT for Aberra cells contain gating parameter in 1/ms instead of 1/s
+        local_S_TO_MS = 1 if ABERRA else S_TO_MS # if ABERRA: no conversion needed
         matrix_dict = {'V': Matrix.from_array(pylkp['V'])}  # mV
         if Cm0_var2: #and also Cm0_var? NO
             matrix_dict['V2'] = Matrix.from_array(pylkp['V2']) #mV
         for ratex in self.pneuron.alphax_list.union(self.pneuron.betax_list):
-            matrix_dict[ratex] = Matrix.from_array(pylkp[ratex] / S_TO_MS)
+            matrix_dict[ratex] = Matrix.from_array(pylkp[ratex] / local_S_TO_MS)
             if Cm0_var2:
-                matrix_dict[ratex+'2'] = Matrix.from_array(pylkp[ratex+'2'] / S_TO_MS)
+                matrix_dict[ratex+'2'] = Matrix.from_array(pylkp[ratex+'2'] / local_S_TO_MS)
         for taux in self.pneuron.taux_list:
-            matrix_dict[taux] = Matrix.from_array(pylkp[taux] * S_TO_MS)
+            matrix_dict[taux] = Matrix.from_array(pylkp[taux] * local_S_TO_MS)
         for xinf in self.pneuron.xinf_list:
             matrix_dict[xinf] = Matrix.from_array(pylkp[xinf])
 
@@ -516,7 +523,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
         # Convert to HOC equivalents and store them as class attributes
         self.Aref, self.Qref, self.lkp = self.Py2ModLookup(self.pylkp)
-        self.Qextref = h.Vector(self.pylkp.Q_ext * C_M2_TO_NC_CM2)
+        if Cm0_var2:
+            self.Qextref = h.Vector(self.pylkp.Q_ext * C_M2_TO_NC_CM2)
 
     @staticmethod
     def setFuncTable(mechname, fname, matrix, xref, yref, Cm0=None):

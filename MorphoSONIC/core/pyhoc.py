@@ -237,7 +237,7 @@ class PointerVector(hclass(h.Vector)):
     def addVal(self, i, x):
         self.setVal(i, self.x[i] + x)
 
-    def addTo(self, v, offset, fac=1):
+    def addTo(self, v, offset, fac=1): #offset is not used
         ''' Add the vector to a destination vector with a specific offset and factor. '''
         for i, x in enumerate(self):
             v.x[i] = v.x[i] + x * fac
@@ -364,7 +364,10 @@ else:
                 :param name: section name
                 :param cell: section cell
             '''
-            pass
+            if cell is not None:
+                super().__init__(name=name, cell=cell) # -> section has name: "cell.name"
+            else:
+                super().__init__(name=name) # -> section has name: "name"
 
 
 class Section(baseSection):
@@ -387,47 +390,12 @@ class Section(baseSection):
 
         #print('SECTION INIT:\n')
         if nrnsec: #type(nrnsec) = <class 'nrn.Section'>
-        #IDEA1 -> transfer all atrributes from given nrnsec to self (self is a <deleted section>)
-        #     for attr in dir(nrnsec):
-        #         if not attr.startswith("__"):  # Exclude internal attributes
-        #             print('here')
-        #             setattr(self, attr, getattr(nrnsec, attr))
-        #             print('here')
-        #             # print(f"attribute name: {attr}")
-        #             # print("atribute value: ",eval(f"nrnsec.{attr}"))
-            
-        #IDEA2 -> give the nrnsec as a variable of the class 
-        #     self.nrnsec = nrnsec (self is a <deleted section>)
-            
-        #IDEA3 -> self = nrnsec 
-            # print(self,nrnsec)
-            # print(type(nrnsec))
-            # self = nrnsec # self becomes a pure nrn.Section and has no passive_mechname
-            # print(self,nrnsec)
-            # print("set self - nrnsec:",set(dir(self))-set(dir(nrnsec)))
-            # print("set nrnsec - self:",set(dir(nrnsec))-set(dir(self)))    
-
-        #IDEA GPT
-            #super().__init__(section=nrnsec) #TypeError: 'section' is an invalid keyword argument for this function
-            #self.__dict__.update(nrnsec.__dict__) #not possible, self is a <deleted section> 
-            #print('name: ',nrnsec.name,'cell: ',nrnsec.cell)
-            #super().__init__(name=name, cell=cell) #creates a new section with the same name and cell
-            #super().__init__() #this creates and empty nrn.section (__nrnsec_000001bbfdf0a620)
-            #self._nrn_sec = nrnsec
-            # for attr in dir(nrnsec):
-            #     if not attr.startswith("__"):  # Exclude internal attributes
-            #         setattr(self, attr, getattr(nrnsec, attr))
-                    # print(f"attribute name: {attr}")
-                    # print("atribute value: ",eval(f"nrnsec.{attr}"))
             super().__init__(nrnsec=nrnsec)
             #self.nrnsec = nrnsec
             #h.delete(nrnsec) #IDEA
-        #ultimately IDEA 1 + 2 has been implemented => NOT ANYMORE
-
-        elif cell is not None: #changed this to elif instead of if
-            super().__init__(name=name, cell=cell) # -> section has name: "cell.name"
+            
         else:
-            super().__init__(name=name) # -> section has name: "name"
+            super().__init__(name=name, cell=cell) 
         self.passive_mechname = cell.passive_mechname
         self.Cm0 = Cm0
         self.nseg = 1
@@ -903,14 +871,14 @@ def getCustomConnectSection(section_class):
             return self.getValue(f'_ref_{self.vref}', **kwargs)
 
         def getCm(self, **kwargs):
-            if str(self.nrnsec).endswith('[0]'): #only print once for every type of compartment
-                "DEBUG LINES"
-                #print(f'\nself.nrnsec: {self.nrnsec}, self.vref: {self.vref}')
-                #print(f'kwargs: {kwargs}') #what are these kwargs? usually it is only an x value (location of segment in section)
-                #print((self.nrnsec.psection()['density_mechs'].keys())) #to print the inserted density mechanisms 
-                #print(f"{self.getValue('v', **kwargs)} / {self.getVm(**kwargs)} = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #shows how the capacitance is calculated #BREAKPOINT
-                #print(f"Cm = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #to check the general values of Cm => doesn't deviate much from 1
-                pass
+            # if str(self.nrnsec).endswith('[0]'): #only print once for every type of compartment
+            #     "DEBUG LINES"
+            #     #print(f'\nself.nrnsec: {self.nrnsec}, self.vref: {self.vref}')
+            #     #print(f'kwargs: {kwargs}') #what are these kwargs? usually it is only an x value (location of segment in section)
+            #     #print((self.nrnsec.psection()['density_mechs'].keys())) #to print the inserted density mechanisms 
+            #     #print(f"{self.getValue('v', **kwargs)} / {self.getVm(**kwargs)} = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #shows how the capacitance is calculated #BREAKPOINT
+            #     #print(f"Cm = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #to check the general values of Cm => doesn't deviate much from 1
+            #     pass
             return self.getValue('v', **kwargs) / self.getVm(**kwargs)
 
         def connect(self, parent):
