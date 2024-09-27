@@ -496,9 +496,18 @@ def addSonicFeatures(Base):
         def addIaxToSolution(self, sp_ext_sol):
             ''' Add axial currents to solution. '''
             #print(f'sp_ext_sol.keys(): {sp_ext_sol.keys()}') #to print all the keys of the simulation output -> these are just the sections of the simulated cell
+            #import matplotlib.pyplot as plt
             Vi_dict = {k: sol['Vin' if 'Vin' in sol else 'Vm'] for k, sol in sp_ext_sol.items()}
             for k, v in self.computeIax(Vi_dict).items():
-                sp_ext_sol[k]['iax'] = v  # mA/m2
+                sp_ext_sol[k]['iax'] = v  # mA/m2 #BREAKPOINT
+            #     plt.clf()
+            #     plt.plot(sp_ext_sol[k]['t']*1e3,sp_ext_sol[k]['iax']*1e-3)
+            #     plt.xlabel('time [ms]')
+            #     plt.ylabel('iax [A/m2]')
+            #     plt.title(k)
+            #     print(v)
+            #     plt.savefig(r"C:\Users\jgazquez\OneDrive - UGent\PhD\Figures\self_made\run_realistic_astim output\try 18\analysis\thefolder\\"+k+".jpg")
+            # quit()
 
         def simulate(self, *args, **kwargs):
             ''' Add axial currents to solution. '''

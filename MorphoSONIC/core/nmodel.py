@@ -411,42 +411,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
         h.t = 0
         t_next, t_step = 10, 10 #0.0010, 0.0010
         print(f'tstop = {tstop}')
-        # N = h.Node[0]
-        # M = h.Myelin[0]
-        # t = h.t
-        # v_M, v_N = 0, 0
         while h.t < tstop: #BREAKPOINT
             #time.sleep(5)
             #print(f'\n\n new timestep: {h.t}\n\n')
             self.advance()
-            # dvM = v_M - M.v #mV
-            # dvN = v_N - N.v #mV
-            # v_M = M(1e-3).v #mV
-            # v_N = N(1e-3).v #mV
-            # delta_V = v_M-v_N #mV
-            # C_M = M.cm #uF/cm2
-            # C_N = N.cm #uF/cm2
-            # riM = M(0.5).ri() #MOhm
-            # riN = N(0.5).ri() #MOhm
-            # A_M = M(0.5).area() #um2
-            # A_N = N(0.5).area() #um2
-            # dt = h.t-t #ms
-            # t = h.t #ms
-            # #iaxM1, iaxN1 = C_M*dvM/dt,C_N*dvN/dt
-            # iaxM2,iaxN2 = delta_V/(riM+riN)/A_M, delta_V/(riN+riM)/A_N
-
-            # print('vM, vN = ',v_M,v_N)
-            # print('delta v:',delta_V)
-            # print('dvM, dvN = ',dvM,dvN)
-            # print('riM, riN:',riM,riN)
-            # print('A_M, A_N:',A_M,A_N)
-            # print('C_M, C_N:',C_M,C_N)
-            # print('iaxM1, iaxM2:',iaxM2,iaxN2)
-            # #print('iaxN1, iaxN2:',iaxM1,iaxN1)
-            # print('A_M/A_N',A_M/A_N)
-            # print('iaxN2/iaxM2',iaxN2/iaxM2)
-            # time.sleep(1); quit()
-            #print(h.Myelin[0].v); print(h.Unmyelin[0].v); print(h.Node[0].v)
             if h.t > t_next:
                 #print(dir(h))
                 print(f'h.t = {h.t}')
@@ -940,6 +908,10 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
         '''
         # Reset time to zero (redundant, but helps with clarity during debugging)
         h.t = 0
+        #disconnect in hoc
+        # for sec in h.allsec():
+        #     print(sec.Ra)
+        #     h.disconnect(sec=sec)
         
         # Set distributed drives
         self.setDrives(source)

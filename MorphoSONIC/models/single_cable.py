@@ -124,6 +124,8 @@ class SingleCableFiber(FiberNeuronModel):
 
     def setTopology(self):
         for i in range(self.nnodes - 1):
+            #disconnect in Morpho
+            #continue
             self.connect('node', i, 'node', i + 1)
 
     def toInjectedCurrents(self, Ve):

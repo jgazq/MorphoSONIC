@@ -129,6 +129,8 @@ class SpatiallyExtendedParser(Parser):
                 raise ValueError('"--section all" not available in standard plotting mode. Try adding "--compare" to enable comparative mode')
             for key in args['section']:
                 scheme_plot = SectionGroupedTimeSeries(key, outputs, pltscheme=args['pltscheme'])
+                print(outputs[0][0])
+                quit()
                 if ABERRA:
                     render_args['fiber'] = args['fiber']
                     render_args['ref_loc'] = args['ref_loc']
@@ -362,7 +364,7 @@ class NeuronParser(SpatiallyExtendedParser):
         if args['section'] == ['center'] and args['compare']:
             raise ValueError(
                 '"center" placeholder for section ID cannot be used when comparing results from models of different sizes')
-        if len(args['section']) > 6 and args['plot'] != ['all'] and not args['compare']: #changed to 6 as there are 6 different sections in the Aberra cells
+        if len(args['section']) > 7 and args['plot'] != ['all'] and not args['compare']: #changed to 6 as there are 6 different sections in the Aberra cells
             logger.warning(
                 'More than 5 morphological sections were specified for plots -> falling back to comparative plot(s)')
             args['compare'] = True

@@ -143,10 +143,10 @@ class nrn(SpatiallyExtendedNeuronModel):
                 #     print(f'deleted:\t\t\t{mech} in {sec}')
                 #     sec.uninsert(mech)
                 #     continue
-                if 'SK_E2' in mech or 'Dynamics' in mech: #'SKv3_1' in mech or
-                    print(f'deleted:\t\t\t{mech} in {sec}')
-                    sec.uninsert(mech)
-                    continue
+                # if 'SK_E2' in mech or 'Dynamics' in mech: #'SKv3_1' in mech or
+                #     print(f'deleted:\t\t\t{mech} in {sec}')
+                #     sec.uninsert(mech)
+                #     continue
                 mech_ext = f"{mech}{Cm0_map[sec.cm]}"
                 if mech == 'pas': #different treatment for the passive mechanism
                     suffix = f'pas_eff{Cm0_map[sec.cm]}'
@@ -277,16 +277,29 @@ class nrn(SpatiallyExtendedNeuronModel):
         #first create a dictionary for every type of compartment by creating a python section wrapper around the nrn section
 
         somas = {eval(f"'soma{i}'"): self.createSection(eval(f"'soma[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.soma)}
+        axons, nodes, myelins, unmyelins = {}, {}, {}, {}
+        for e in self.cell.axonal:
+            if 'axon' in str(e):
+                axons[eval(f"'axon{len(axons.keys())}'")] = self.createSection(eval(f"'axon[{len(axons.keys())}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e)
+            elif 'Node' in str(e):
+                nodes[eval(f"'node{len(nodes.keys())}'")] = self.createSection(eval(f"'node[{len(nodes.keys())}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e)
+            elif 'Myelin' in str(e):
+                myelins[eval(f"'myelin{len(myelins.keys())}'")] = self.createSection(eval(f"'myelin[{len(myelins.keys())}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e)
+            elif 'Unmyelin' in str(e):
+                unmyelins[eval(f"'unmyelin{len(unmyelins.keys())}'")] = self.createSection(eval(f"'unmyelin[{len(unmyelins.keys())}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e)
+            else:
+                raise TypeError(f'Undefined section ecountered: {str(e)}')
+        #axons = {eval(f"'axon{i}'"): self.createSection(eval(f"'axon[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.axonal)}
         apicals = {eval(f"'apical{i}'"): self.createSection(eval(f"'apical[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.apical)}
         basals = {eval(f"'basal{i}'"): self.createSection(eval(f"'basal[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.basal)}
-        nodes = {eval(f"'node{i}'"): self.createSection(eval(f"'node[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Node)}
-        myelins = {eval(f"'myelin{i}'"): self.createSection(eval(f"'myelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Myelin)}
-        unmyelins = {eval(f"'unmyelin{i}'"): self.createSection(eval(f"'unmyelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Unmyelin)}
+        #nodes = {eval(f"'node{i}'"): self.createSection(eval(f"'node[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Node)}
+        #myelins = {eval(f"'myelin{i}'"): self.createSection(eval(f"'myelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Myelin)}
+        #unmyelins = {eval(f"'unmyelin{i}'"): self.createSection(eval(f"'unmyelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Unmyelin)}
 
         #self.sections: dicionary contain dictionaries for each type
-        self.sections = {'soma': somas, 'apical': apicals, 'basal': basals, 'node': nodes, 'myelin': myelins, 'unmyelin': unmyelins} #no axon -> replaced with Node, Myelin and Unmyelin #
+        self.sections = {'soma': somas, 'axon': axons, 'apical': apicals, 'basal': basals, 'node': nodes, 'myelin': myelins, 'unmyelin': unmyelins} #no axon -> replaced with Node, Myelin and Unmyelin #
         #self.seclist: contains all python sections in a list
-        self.seclist = [*list(somas.values()), *list(apicals.values()), *list(basals.values()), *list(nodes.values()), *list(myelins.values()), *list(unmyelins.values())] #
+        self.seclist = [*list(somas.values()), *list(axons.values()), *list(apicals.values()), *list(basals.values()), *list(nodes.values()), *list(myelins.values()), *list(unmyelins.values())] #
         #self.nrnseclist: contains all (original) nrn (hoc) sections in a list 
         self.nrnseclist = [e.nrnsec for e in self.seclist]
         #print("len(seclist): ",len(self.seclist)) #to check how many sections are defined
@@ -298,16 +311,19 @@ class nrn(SpatiallyExtendedNeuronModel):
             #print('sec: ',sec)
             parent, children = sec.nrnsec, sec.nrnsec.children()
             for child in children:
-                if ('axon' in str(parent) or 'axon' in str(child)): #or ('Myelin' in str(parent) or 'Myelin' in str(child)): #there is an axon that is still a child of the soma even if they are replaced with nodes, myelin and unmyelin
-                    continue
+                #print(parent, child); continue
+                #if ('axon' in str(parent) or 'axon' in str(child)): #or ('Myelin' in str(parent) or 'Myelin' in str(child)): #there is an axon that is still a child of the soma even if they are replaced with nodes, myelin and unmyelin
+                    #continue
                 #print('parent: ',parent,'child',child)
+                #disconnect in Morpho
                 self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child))) #str(parent),str(child),
             "lines are moved to init of CustomConnectSection"
         #print(self.connections)
         #print(self.seclist)
         # for e in self.connections:
         #     print(e)
-        # quit()
+        #quit()
+        #disconnect in hoc
         for sec in h.allsec():
             h.disconnect(sec=sec)
         print(f'CELL IS CREATED: {len(self.seclist)} sections')
