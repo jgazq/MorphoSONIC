@@ -276,12 +276,12 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 #cvode.use_daspk(1) #added daspk option -> this happens automatic because of LinMech and extracellular
             if atol is not None:
                 cvode.atol(atol)
-        print('SET INTEGRATOR:')
-        print(f'before: h.dt = {h.dt*1e3} us'); h.dt *= 0.1; print(f'after: h.dt = {h.dt*1e3} us')
-        print(f'current methods: {cvode.current_method()}')
-        print(self.getIntegrationMethod())
-        print(f'h.secondorder = {h.secondorder}')
-        print('')
+        #print('SET INTEGRATOR:') #LOG OUTPUT
+        #print(f'before: h.dt = {h.dt*1e3} us'); h.dt *= 0.1; print(f'after: h.dt = {h.dt*1e3} us')
+        #print(f'current methods: {cvode.current_method()}')
+        #print(self.getIntegrationMethod())
+        #print(f'h.secondorder = {h.secondorder}')
+        #print('')
 
     def resetIntegrator(self):
         ''' Re-initialize the integrator. '''
@@ -343,6 +343,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
             ]
         #print('starting h.finitialize')
         h.finitialize() #(x0) #BREAKPOINT
+        #self.resetIntegrator()
         #print('ended h.finitialize')
 
     def fadvanceLogger(self):
@@ -410,14 +411,14 @@ class NeuronModel(metaclass=abc.ABCMeta):
         logger.debug(f'integrating system using {self.getIntegrationMethod()}')
         h.t = 0
         t_next, t_step = 10, 10 #0.0010, 0.0010
-        print(f'tstop = {tstop}')
+        #print(f'tstop = {tstop}') #LOG OUTPUT
         while h.t < tstop: #BREAKPOINT
             #time.sleep(5)
             #print(f'\n\n new timestep: {h.t}\n\n')
             self.advance()
             if h.t > t_next:
                 #print(dir(h))
-                print(f'h.t = {h.t}')
+                #print(f'h.t = {h.t}') #LOG OUTPUT
                 t_next += t_step
         #quit()
 
@@ -533,7 +534,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
                         #print(f"fillTable1: {fillTable}")
                         fillTable(matrix._ref_x[0][0], nx, xref._ref_x[0], ny, yref._ref_x[0]) #call the table filler for every mechanisms that contains V LUT
                     except:
-                        print(f'{mech} has no attribute {fname}')
+                        pass
+                        #print(f'{mech} has no attribute {fname}') #LOG OUTPUT
                 #fillTable = getattr(h, f'table_{fname}_K_Pst') #this assumes that the mechanism K_Pst is always present in the chosen cell -> replaced with iteration over all mechanisms
                 return #stop after iterating over different mechanisms as the remainder of the code is not for V LUTs
             else:
