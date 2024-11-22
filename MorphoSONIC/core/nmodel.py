@@ -342,7 +342,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 h.FInitializeHandler(2, self.fi2)
             ]
         #print('starting h.finitialize')
+        for sec in h.allsec():
+            sec.v = -75*sec.cm
         h.finitialize() #(x0) #BREAKPOINT
+        h.fcurrent()
         #self.resetIntegrator()
         #print('ended h.finitialize')
 
