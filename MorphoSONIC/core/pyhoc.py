@@ -42,7 +42,7 @@ class Probe(hclass(h.Vector)):
         ''' Initialization. '''
         super().__init__()
         self.factor = factor
-        self.record(variable)
+        self.record(variable, 0.025) #Dt = 0.025 ms
 
     def to_array(self):
         ''' Return itself as a numpy array. '''
