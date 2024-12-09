@@ -318,11 +318,12 @@ class nrn(SpatiallyExtendedNeuronModel):
                 #disconnect in Morpho
                 self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child))) #str(parent),str(child),
             "lines are moved to init of CustomConnectSection"
-        #print(self.connections)
-        #print(self.seclist)
-        # for e in self.connections:
-        #     print(e)
-        #quit()
+        self.connections_double = [] #this list contains both the (x,y)=(parent,child) connection as the (y,x)=(child,parent) connection
+        for e in self.connections:
+            self.connections_double.append((e[1],e[0])) # creating and adding the (y,x) connections
+        self.connections_double += self.connections #adding the original (x,y) connections
+        self.connections_double.sort() #sort them so they are in order
+
         #disconnect in hoc
         for sec in h.allsec():
             h.disconnect(sec=sec)

@@ -427,6 +427,49 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
     def advance(self):
         ''' Advance simulation onto the next time step. '''
+
+        """updating q1 and f1: this is done before h.fadvance() as update() is also done before anything else in the NMODL file"""
+
+        """start = 0
+        #print(f'self.connections: {self.connections}\n')
+        #print(f'self.connections_double: {self.connections_double}\n')
+        for i,e in enumerate(self.seclist):
+            sec_i = e.nrnsec
+            #LHS_A =  sec_i.Q1_mech * np.cos(sec_i.phi1_mech)
+            #LHS_B = -sec_i.Q1_mech * np.sin(sec_i.phi1_mech)
+            RHS_A = 0
+            RHS_B = 0
+            for c,f in enumerate(self.connections_double[start:]):
+                sec_c = self.seclist[f[1]].nrnsec
+                #print(sec_i, sec_c)
+                if f[0] > i:
+                    start += c
+                    break
+                print(f"\n{f}")
+                if i == f[0]:
+                    if f in self.connections: #i = parent, c = child -> parent(1) or child(0) -> i(1) or c(0)
+                        R_ic = sec_c(0).ri()
+                        r_ic = sec_c.Ra
+                    elif f in self.connections_double: #i = child, c = parent -> parent(1) or child(0) -> c(1) or i(0)
+                        R_ic = sec_i(0).ri()
+                        r_ic = sec_i.Ra
+                    else:
+                        print(f'Connectie {f} zit niet opgeslagen in self.connections of self.connections_double')
+                    print(R_ic)
+                    print(r_ic)
+                    #RHS_A += ((sec_c.V1_mech*np.cos(sec_c.psi1_mech)) - (sec_i.V1_mech*np.cos(sec_i.psi1_mech)))/R_ic
+                    #RHS_B += ((-sec_c.V1_mech*np.sin(sec_c.psi1_mech)) - (-sec_i.V1_mech*np.sin(sec_i.psi1_mech)))/R_ic
+                #print(i,f)
+            #RHS_A /= 2*np.pi*'freq'* np.pi*(sec_i.diam/2)**2
+            #RHS_B /= 2*np.pi*'freq'* np.pi*(sec_i.diam/2)**2
+            #sec_i.Q1_mech = brentq
+            #sec_i.phi1_mech = brentq
+
+            if i == 10:
+                quit()
+        quit()"""
+
+
         h.fadvance()
 
     def integrate(self, pp, dt, atol):
