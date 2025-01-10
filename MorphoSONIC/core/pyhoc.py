@@ -780,6 +780,10 @@ class MechSection(Section):
     def setProbes(self):
         if ABERRA:
             states_mechs = [(e.split('_')[0], e.split('_')[-1]) for e in self.states if mech_mapping[e.split('_')[-1]] in self.relevant_mechs]
+            #print(self.nrnsec,states_mechs)
+            #quit()
+            if SIMPLIFIED:
+                states_mechs = []
             #print(f"self.nrnsec:{self.nrnsec}:") # print the current section
             #print(f"self.states: {self.states}\n\nself.relevant_mechs: {self.relevant_mechs}\n") # print all the states of the pneuron and the relevant mechs of the current section
             #print(f"relevant_states: {states_mechs}\n\n") # print the determined relevant states based on the inserted mechanisms in that particular section

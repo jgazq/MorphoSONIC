@@ -302,6 +302,10 @@ class nrn(SpatiallyExtendedNeuronModel):
         self.seclist = [*list(somas.values()), *list(axons.values()), *list(apicals.values()), *list(basals.values()), *list(nodes.values()), *list(myelins.values()), *list(unmyelins.values())] #
         #self.nrnseclist: contains all (original) nrn (hoc) sections in a list 
         self.nrnseclist = [e.nrnsec for e in self.seclist]
+        self.segments = []
+        for sec in self.nrnseclist:
+            for seg in sec:
+                self.segments.append(seg)
         #print("len(seclist): ",len(self.seclist)) #to check how many sections are defined
         #print('self.nrnseclist',self.nrnseclist) #to check if the creation has been conducted correctly
 
@@ -318,10 +322,13 @@ class nrn(SpatiallyExtendedNeuronModel):
                 #disconnect in Morpho
                 self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child))) #str(parent),str(child),
             "lines are moved to init of CustomConnectSection"
-        self.connections_double = [] #this list contains both the (x,y)=(parent,child) connection as the (y,x)=(child,parent) connection
+        self.connections_reversed = [] #this list contains both the (x,y)=(parent,child) connection as the (y,x)=(child,parent) connection
         for e in self.connections:
-            self.connections_double.append((e[1],e[0])) # creating and adding the (y,x) connections
-        self.connections_double += self.connections #adding the original (x,y) connections
+            self.connections_reversed.append((e[1],e[0])) # creating and adding the (y,x) connections
+        self.connections_double = self.connections + self.connections_reversed #adding the original (x,y) connections
+        
+        self.connections.sort()
+        self.connections_reversed.sort()
         self.connections_double.sort() #sort them so they are in order
 
         #disconnect in hoc
