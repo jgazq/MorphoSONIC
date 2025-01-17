@@ -303,7 +303,12 @@ class nrn(SpatiallyExtendedNeuronModel):
         #self.nrnseclist: contains all (original) nrn (hoc) sections in a list 
         self.nrnseclist = [e.nrnsec for e in self.seclist]
         self.segments = []
+        self.indexes = []
+        iterator = 0
         for sec in self.nrnseclist:
+            nseg = sec.nseg
+            self.indexes.append([e for e in range(iterator,iterator+nseg)])
+            iterator += nseg
             for seg in sec:
                 self.segments.append(seg)
         #print("len(seclist): ",len(self.seclist)) #to check how many sections are defined
@@ -320,7 +325,7 @@ class nrn(SpatiallyExtendedNeuronModel):
                     #continue
                 #print('parent: ',parent,'child',child)
                 #disconnect in Morpho
-                self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child))) #str(parent),str(child),
+                self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child))) #str(parent),str(child)
             "lines are moved to init of CustomConnectSection"
         self.connections_reversed = [] #this list contains both the (x,y)=(parent,child) connection as the (y,x)=(child,parent) connection
         for e in self.connections:

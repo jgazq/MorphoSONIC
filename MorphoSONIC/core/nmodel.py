@@ -416,65 +416,91 @@ class NeuronModel(metaclass=abc.ABCMeta):
         logger.debug(f'integrating system using {self.getIntegrationMethod()}')
         h.t = 0
         self.Q, self.phi = np.zeros((OVERTONES,len(self.segments))), np.zeros((OVERTONES,len(self.segments)))
-        t_next, t_step = 1, 1 #0.0010, 0.0010
+        t_next, t_step = 1, 1 #1, 1 #0.0010, 0.0010
+        T_up_next, T_up_step = 0.05, 0.05 #next update moment and update step of overtones
         print(f'tstop = {tstop}') #LOG OUTPUT
         while h.t < tstop: #BREAKPOINT
             #time.sleep(5)
-            #print(f'\n\n new timestep: {h.t}\n\n')
-            self.advance()
+            print(f'\n\n new timestep: {h.t}\n\n')
             if h.t > t_next:
                 #print(dir(h))
                 print(f'h.t = {h.t}') #LOG OUTPUT
                 t_next += t_step
+            if OVERTONES:
+                if h.t > T_up_next:
+                    print('overtones update')
+                    T_up_next += T_up_step
+                    self.advance(1)
+                else:
+                    self.advance()
+            else:
+                self.advance()
 
-    def solve_overtones(self, Q_k_flat, phi_k_flat, k):
+    def solve_overtones(self, Q_k_flat_phi_k_flat, k):
         """ equation that returns LHS-RHS of eq. (12) and eq. (13)
             :A_Qk_flat: array/vector containing A_(Q,k) for all sections
             :B_Qk_flat: array/vector containing B_(Q,k) for all sections
             :k: overtone - 1 (first overtone has index 0)"""
         
+        if DEBUG_OV:
+            start_time = time.perf_counter()
         start = 0
         start_reversed = 0
         # print(f'self.connections: {self.connections}\n')
         # print(f'self.connections_reversed: {self.connections_reversed}\n')
         # print(f'self.connections_double: {self.connections_double}\n')
+        Q_k_flat = Q_k_flat_phi_k_flat[:len(Q_k_flat_phi_k_flat)//2]
+        phi_k_flat = Q_k_flat_phi_k_flat[len(Q_k_flat_phi_k_flat)//2:]
+        #indexesQ = np.where((Q_k_flat!= 0))[0]
+        #indexesphi= np.where((phi_k_flat!= 0))[0]
+        #print(indexesQ,indexesphi)
 
         assert len(Q_k_flat) == len(phi_k_flat), 'A_Q and B_Q have different length' #length = # of segments
-        res_Ai, res_Bi = [], []
         A_Qk_flat = Q_k_flat * np.cos(phi_k_flat)  #A_(Q​,k) = Q_k * ​cos(ϕ_k​) -> LHS of eq. (12)
         B_Qk_flat = - Q_k_flat * np.sin(phi_k_flat) #B_(Q​,k) = −Q_k * ​sin(ϕk​) -> LHS of eq. (13)
-        iterator = 0
+        res_12, res_13 = np.zeros(len(Q_k_flat)), np.zeros(len(Q_k_flat)) #results/residuals
+        
+        connections = self.connections
+        connections_reversed = self.connections_reversed
+        indexes = self.indexes
+
 
         #reorden A_Qk and B_Qk so they can be indexed by (section, segment)
-        A_Qk, B_Qk = [], []
-        Q_k, phi_k = [], []
-        for sec in self.nrnseclist:
-            A, B, Q, phi = [], [], [], []
-            for seg in sec:
-                A.append(A_Qk_flat[iterator])
-                B.append(B_Qk_flat[iterator])
-                Q.append(Q_k_flat[iterator])
-                phi.append(phi_k_flat[iterator])
-                iterator += 1
-            A_Qk.append(A)
-            B_Qk.append(B)
-            Q_k.append(A)
-            phi_k.append(B)
+        # iterator = 0
+        # A_Qk, B_Qk = [], []
+        # Q_k, phi_k = [], []
+        # for sec in self.nrnseclist:
+        #     A, B, Q, phi = [], [], [], []
+        #     for seg in sec:
+        #         A.append(A_Qk_flat[iterator])
+        #         B.append(B_Qk_flat[iterator])
+        #         Q.append(Q_k_flat[iterator])
+        #         phi.append(phi_k_flat[iterator])
+        #         iterator += 1
+        #     A_Qk.append(A)
+        #     B_Qk.append(B)
+        #     Q_k.append(Q)
+        #     phi_k.append(phi)
 
+        #print(len(Q_k), len(phi_k))
+        iterator = 0
         for i,seci in enumerate(self.seclist): #iterate over all sections i -> sec_i
-            print(i)
+            #print(seci.indexes)
             sec_i = seci.nrnsec #neuron section
             nseg_i = sec_i.nseg #number of segments that the section i contains
             midpoints_i = [(1+2*i)/(2*nseg_i) for i in range(nseg_i)] #midpoints of the different segments of section i
             for g, seg in enumerate(sec_i): #iterate over all the segments in section i
                 #sec_i(midpoints_i[g]).Q1_mech * np.cos(sec_i(midpoints_i[g]).phi1_mech)
-                LHS_A = A_Qk[i][g]
+                #if A_Qk[i][g] != A_Qk_flat[self.indexes[i][g]]:
+                #    print(A_Qk[i][g], )
+                LHS_12 = A_Qk_flat[indexes[i][g]] #A_Qk[i][g]
                 #-sec_i(midpoints_i[g]).Q1_mech * np.sin(sec_i(midpoints_i[g]).phi1_mech)
-                LHS_B = B_Qk[i][g]
-                RHS_A = 0
-                RHS_B = 0
+                LHS_13 = B_Qk_flat[indexes[i][g]] #B_Qk[i][g]
+                h("RHS_12 = 0") #RHS_A = 0
+                h("RHS_13 = 0") #RHS_B = 0
+                "segment and subsequent segment of subsequent section"
                 if g == nseg_i - 1: #if it is a segment at the end of the section (last segment before terminal 1) -> case 3
-                    for c,i_c in enumerate(self.connections[start:]): #iterate over all connections where they are stored as (parent, child)
+                    for c,i_c in enumerate(connections[start:]): #iterate over all connections where they are stored as (parent, child)
                         if i_c[0] > i: #if we are past section i in the connections
                             start += c #offset c is used to avoid iterating over the whole list for every section
                             break #break if we are past section i
@@ -486,17 +512,30 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             R_ic = sec_i(1).ri() + sec_c(1/(2*nseg_c)).ri() #resistance between segment of section i and segment of section c
                             #print(sec_i(midpoints_i[-1]), sec_c(midpoints_c[0]))
                             #midpoints_i[g] = midpoints_i[-1] -> these are the same in this case
-                            arg_i = (eval(f'sec_i({midpoints_i[-1]}).A_t_{seci.random_mechname}'), eval(f'sec_i({midpoints_i[-1]}).v'), Q_k[i_c[0]][-1], phi_k[i_c[0]][-1])
-                            arg_c = (eval(f'sec_c({midpoints_c[0]}).A_t_{secc.random_mechname}'), eval(f'sec_c({midpoints_c[0]}).v'), Q_k[i_c[1]][0], phi_k[i_c[1]][0])
-                            #( ( sec_c(midpoints_c[0]).V1_mech*np.cos(sec_c(midpoints_c[0]).psi1_mech) ) - ( sec_i(midpoints_i[-1]).V1_mech*np.cos(sec_i(midpoints_i[-1]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_A = ( (  A_V1_{secc.random_mechname}{arg_c} * cos(phi_V1_{secc.random_mechname}{arg_c}) ) - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
-                            RHS_A += h.RHS_A
-                            #( (-sec_c(midpoints_c[0]).V1_mech*np.sin(sec_c(midpoints_c[0]).psi1_mech) ) - (-sec_i(midpoints_i[-1]).V1_mech*np.sin(sec_i(midpoints_i[-1]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_B = ( ( -A_V1_{secc.random_mechname}{arg_c} * sin(phi_V1_{secc.random_mechname}{arg_c}) ) - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
-                            RHS_B += h.RHS_B
+                            #print(i_c[0],i_c[1])
+                            arg_i = (getattr(sec_i(midpoints_i[-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[-1]).v, Q_k_flat[indexes[i_c[0]][-1]], phi_k_flat[indexes[i_c[0]][-1]]) #(getattr(sec_i(midpoints_i[-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[-1]).v, Q_k[i_c[0]][-1], phi_k[i_c[0]][-1])
+                            arg_c = (getattr(sec_c(midpoints_c[0]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[0]).v, Q_k_flat[indexes[i_c[1]][0]], phi_k_flat[indexes[i_c[1]][0]]) #(getattr(sec_c(midpoints_c[0]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[0]).v, Q_k[i_c[1]][0], phi_k[i_c[1]][0])
+                            #RHS_12_P2 & RHS_13_P2
+                            if sec_i.cm != 0.02:
+                                h(f"RHS_13 += - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) / {R_ic}")
+                                h(f"RHS_12 += - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) / {R_ic}")
+                            else:
+                                h(f"RHS_13 += - (  {Q_k_flat[indexes[i_c[0]][-1]]} * cos({phi_k_flat[indexes[i_c[0]][-1]]}) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_A_P2 = - (  {Q_k[i_c[0]][-1]} * cos({phi_k[i_c[0]][-1]}) ) / {R_ic} / {sec_i.cm}")
+                                h(f"RHS_12 += - ( -{Q_k_flat[indexes[i_c[0]][-1]]} * sin({phi_k_flat[indexes[i_c[0]][-1]]}) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_B_P2 = - ( -{Q_k[i_c[0]][-1]} * sin({phi_k[i_c[0]][-1]}) ) / {R_ic} / {sec_i.cm}")
+                            #RHS_12_P1 & RHS_13_P1
+                            if sec_c.cm != 0.02:
+                                h(f"RHS_13 += (  A_V1_{secc.random_mechname}{arg_c} * cos(phi_V1_{secc.random_mechname}{arg_c}) ) / {R_ic}")
+                                h(f"RHS_12 += ( -A_V1_{secc.random_mechname}{arg_c} * sin(phi_V1_{secc.random_mechname}{arg_c}) ) / {R_ic}")
+                            else:
+                                h(f"RHS_13 += (  {Q_k_flat[indexes[i_c[1]][0]]} * cos({phi_k_flat[indexes[i_c[1]][0]]}) ) / {R_ic} / {sec_c.cm}")
+                                h(f"RHS_12 += ( -{Q_k_flat[indexes[i_c[1]][0]]} * sin({phi_k_flat[indexes[i_c[1]][0]]}) ) / {R_ic} / {sec_c.cm}")
+                            #RHS_A += h.RHS_A_P1 + h.RHS_A_P2
+                            #RHS_B += h.RHS_B_P1 + h.RHS_B_P2
+                    #quit()
 
+                "segment and preceding segment of preceding section"
                 if g == 0: #if it is a segment at the beginning of the section (first section after terminal 0) -> case 2
-                    for c,i_c in enumerate(self.connections_reversed[start_reversed:]): #iterate over all connections where they are stored as (child, parent)
+                    for c,i_c in enumerate(connections_reversed[start_reversed:]): #iterate over all connections where they are stored as (child, parent)
                         if i_c[0] > i: #if we are past section i in the connections
                             start_reversed += c #avoiding whole list iteration
                             break #stop i we are past section i
@@ -508,167 +547,129 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             R_ic = sec_c(1).ri() + sec_i(1/(2*nseg_i)).ri() #resistance between segment of section c and segment of section i
                             #print(sec_c(midpoints_c[-1]), sec_i(midpoints_i[0]))
                             #midpoints_i[g] = midpoints_i[0] 
-                            arg_i = (eval(f'sec_i({midpoints_i[0]}).A_t_{seci.random_mechname}'), eval(f'sec_i({midpoints_i[0]}).v'), Q_k[i_c[0]][0], phi_k[i_c[0]][0])
-                            arg_c = (eval(f'sec_c({midpoints_c[-1]}).A_t_{secc.random_mechname}'), eval(f'sec_c({midpoints_c[-1]}).v'), Q_k[i_c[1]][-1], phi_k[i_c[1]][-1])
-                            #( ( sec_c(midpoints_c[-1]).V1_mech*np.cos(sec_c(midpoints_c[-1]).psi1_mech)) - ( sec_i(midpoints_i[0]).V1_mech*np.cos(sec_i(midpoints_i[0]).psi1_mech) ) ) / R_ic 
-                            h(f"RHS_A = ( (  A_V1_{secc.random_mechname}{arg_c} * cos(phi_V1_{secc.random_mechname}{arg_c}) ) - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
-                            RHS_A += h.RHS_A
-                            #( (-sec_c(midpoints_c[-1]).V1_mech*np.sin(sec_c(midpoints_c[-1]).psi1_mech)) - (-sec_i(midpoints_i[0]).V1_mech*np.sin(sec_i(midpoints_i[0]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_B = ( ( -A_V1_{secc.random_mechname}{arg_c} * sin(phi_V1_{secc.random_mechname}{arg_c}) ) - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
-                            RHS_B += h.RHS_B
+                            arg_i = (getattr(sec_i(midpoints_i[0]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[0]).v, Q_k_flat[indexes[i_c[0]][0]], phi_k_flat[indexes[i_c[0]][0]])#(getattr(sec_i(midpoints_i[0]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[0]).v, Q_k[i_c[0]][0], phi_k[i_c[0]][0])
+                            arg_c = (getattr(sec_c(midpoints_c[-1]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[-1]).v, Q_k_flat[indexes[i_c[1]][-1]], phi_k_flat[indexes[i_c[1]][-1]])#(getattr(sec_c(midpoints_c[-1]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[-1]).v, Q_k[i_c[1]][-1], phi_k[i_c[1]][-1])
+                            #RHS_12_P2 & RHS_13_P2
+                            if sec_i.cm != 0.02:
+                                h(f"RHS_13 += - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) / {R_ic}")
+                                h(f"RHS_12 += - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) / {R_ic}")
+                            else:
+                                h(f"RHS_13 += - (  {Q_k_flat[indexes[i_c[0]][0]]} * cos({phi_k_flat[indexes[i_c[0]][0]]}) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_A_P2 = - (  {Q_k[i_c[0]][0]} * cos({phi_k[i_c[0]][0]}) ) / {R_ic} / {sec_i.cm}")
+                                h(f"RHS_12 += - ( -{Q_k_flat[indexes[i_c[0]][0]]} * sin({phi_k_flat[indexes[i_c[0]][0]]}) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_B_P2 = - ( -{Q_k[i_c[0]][0]} * sin({phi_k[i_c[0]][0]}) ) / {R_ic} / {sec_i.cm}")
+                            #RHS_A_P1 & RHS_B_P1
+                            if sec_c.cm != 0.02:
+                                h(f"RHS_13 += (  A_V1_{secc.random_mechname}{arg_c} * cos(phi_V1_{secc.random_mechname}{arg_c}) ) / {R_ic}")
+                                h(f"RHS_12 += ( -A_V1_{secc.random_mechname}{arg_c} * sin(phi_V1_{secc.random_mechname}{arg_c}) ) / {R_ic}")
+                            else:
+                                h(f"RHS_13 += (  {Q_k_flat[indexes[i_c[1]][-1]]} * cos({phi_k_flat[indexes[i_c[1]][-1]]}) ) / {R_ic} / {sec_c.cm}") #h(f"RHS_A_P1 = - (  {Q_k[i_c[1]][-1]} * cos({phi_k[i_c[1]][-1]}) ) / {R_ic} / {sec_c.cm}")
+                                h(f"RHS_12 += ( -{Q_k_flat[indexes[i_c[1]][-1]]} * sin({phi_k_flat[indexes[i_c[1]][-1]]}) ) / {R_ic} / {sec_c.cm}") #h(f"RHS_B_P1 = - ( -{Q_k[i_c[1]][-1]} * sin({phi_k[i_c[1]][-1]}) ) / {R_ic} / {sec_c.cm}")
+                            #RHS_A += h.RHS_A_P1 + h.RHS_A_P2
+                            #RHS_B += h.RHS_B_P1 + h.RHS_B_P2
 
                 if nseg_i != 1:  #if it is a segment next to another segments of the same section -> case 1: segment is between 2 other segments (which are not the terminal segments)
+                    "segment and preceding segment of the same section"
                     if g != 0: #not the first segment so we look at connection between the segment and the one before it
                         R_ic = sec_i(midpoints_i[g]).ri() #resistance between segment and the previous one (the one before it)
                         #print(sec_i(midpoints_i[g-1]), sec_i(midpoints_i[g]))
-                        arg_i =   (eval(f'sec_i({midpoints_i[g  ]}).A_t_{seci.random_mechname}'), eval(f'sec_i({midpoints_i[g  ]}).v'), Q_k[i][g  ], phi_k[i][g  ])
-                        arg_im1 = (eval(f'sec_i({midpoints_i[g-1]}).A_t_{seci.random_mechname}'), eval(f'sec_i({midpoints_i[g-1]}).v'), Q_k[i][g-1], phi_k[i][g-1])
-                        #( ( sec_i(midpoints_i[g-1]).V1_mech*np.cos(sec_i(midpoints_i[g-1]).psi1_mech)) - ( sec_i(midpoints_i[g]).V1_mech*np.cos(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                        h(f"RHS_A = ( (  A_V1_{seci.random_mechname}{arg_im1} * cos(phi_V1_{seci.random_mechname}{arg_im1}) ) - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
-                        RHS_A += h.RHS_A
-                        #( (-sec_i(midpoints_i[g-1]).V1_mech*np.sin(sec_i(midpoints_i[g-1]).psi1_mech)) - (-sec_i(midpoints_i[g]).V1_mech*np.sin(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                        h(f"RHS_B = ( ( -A_V1_{seci.random_mechname}{arg_im1} * sin(phi_V1_{seci.random_mechname}{arg_im1}) ) - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
-                        RHS_B += h.RHS_B
+                        arg_i =   (getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k_flat[indexes[i][g  ]], phi_k_flat[indexes[i][g  ]]) #(getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k[i][g  ], phi_k[i][g  ])
+                        arg_im1 = (getattr(sec_i(midpoints_i[g-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g-1]).v, Q_k_flat[indexes[i][g-1]], phi_k_flat[indexes[i][g-1]]) #(getattr(sec_i(midpoints_i[g-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g-1]).v, Q_k[i][g-1], phi_k[i][g-1])
+                        if sec_i.cm != 0.02:
+                            #( ( sec_i(midpoints_i[g-1]).V1_mech*np.cos(sec_i(midpoints_i[g-1]).psi1_mech)) - ( sec_i(midpoints_i[g]).V1_mech*np.cos(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
+                            h(f"RHS_13 += ( (  A_V1_{seci.random_mechname}{arg_im1} * cos(phi_V1_{seci.random_mechname}{arg_im1}) ) - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
+                            #( (-sec_i(midpoints_i[g-1]).V1_mech*np.sin(sec_i(midpoints_i[g-1]).psi1_mech)) - (-sec_i(midpoints_i[g]).V1_mech*np.sin(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
+                            h(f"RHS_12 += ( ( -A_V1_{seci.random_mechname}{arg_im1} * sin(phi_V1_{seci.random_mechname}{arg_im1}) ) - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
+                        else:
+                            h(f"RHS_13 += ( (  {Q_k_flat[indexes[i][g-1]]} * cos({phi_k_flat[indexes[i][g-1]]}) ) - (  {Q_k_flat[indexes[i][g]]} * cos({phi_k_flat[indexes[i][g]]}) ) ) / {R_ic} / {sec_i.cm}")
+                            h(f"RHS_12 += ( ( -{Q_k_flat[indexes[i][g-1]]} * sin({phi_k_flat[indexes[i][g-1]]}) ) - ( -{Q_k_flat[indexes[i][g]]} * sin({phi_k_flat[indexes[i][g]]}) ) ) / {R_ic} / {sec_i.cm}")
+                        #RHS_A += h.RHS_A
+                        #RHS_B += h.RHS_B
+                    "segment and subsequent segment of the same section"
                     if g != nseg_i - 1: #not the last segment so we look at connection between segment and the one after it
-                        print(g,nseg_i)
                         R_ic = sec_i(midpoints_i[g+1]).ri() #resistance between segment and the next one (the one after it)
                         #print(sec_i(midpoints_i[g]), sec_i(midpoints_i[g+1]))
-                        arg_i =   (eval(f'sec_i({midpoints_i[g  ]}).A_t_{seci.random_mechname}'), eval(f'sec_i({midpoints_i[g  ]}).v'), Q_k[i][g  ], phi_k[i][g  ])
-                        arg_ip1 = (eval(f'sec_i({midpoints_i[g+1]}).A_t_{seci.random_mechname}'), eval(f'sec_i({midpoints_i[g+1]}).v'), Q_k[i][g+1], phi_k[i][g+1])
-                        #( ( sec_i(midpoints_i[g+1]).V1_mech*np.cos(sec_i(midpoints_i[g+1]).psi1_mech)) - ( sec_i(midpoints_i[g]).V1_mech*np.cos(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                        h(f"RHS_A = ( (  A_V1_{seci.random_mechname}{arg_ip1} * cos(phi_V1_{seci.random_mechname}{arg_ip1}) ) - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
-                        RHS_A += h.RHS_A
-                        #( (-sec_i(midpoints_i[g+1]).V1_mech*np.sin(sec_i(midpoints_i[g+1]).psi1_mech)) - (-sec_i(midpoints_i[g]).V1_mech*np.sin(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                        h(f"RHS_B = ( ( -A_V1_{seci.random_mechname}{arg_ip1} * sin(phi_V1_{seci.random_mechname}{arg_ip1}) ) - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
-                        RHS_B += h.RHS_B
-                
-                A_i = LHS_A-RHS_A
-                B_i = LHS_B-RHS_B
-                print(A_i, B_i)
-                res_Ai.append(A_i)
-                res_Bi.append(B_i)
-        print(len(res_Ai),len(res_Bi))
-        quit()
-
-
-    def update_overtones(self):
-        """updating q1 and f1: this is done before h.fadvance() as update() is also done before anything else in the NMODL file"""
-
-        start = 0
-        start_reversed = 0
-        # print(f'self.connections: {self.connections}\n')
-        # print(f'self.connections_reversed: {self.connections_reversed}\n')
-        # print(f'self.connections_double: {self.connections_double}\n')
-
-        for i,seci in enumerate(self.seclist): #iterate over all sections i -> sec_i
-            sec_i = seci.nrnsec #neuron section
-            nseg_i = sec_i.nseg #number of segments that the section i contains
-            midpoints_i = [(1+2*i)/(2*nseg_i) for i in range(nseg_i)] #midpoints of the different segments of section i
-            for g, seg in enumerate(sec_i.allseg()): #iterate over all the segments in section i
-                if g == 0 or g == nseg_i+1: #first and last segment are dummy segments meant for connecting sections (and maybe more)
-                    continue #ingore the terminal ends?
-                g = g-1 # [1...nseg] -> [0...nseg-1] #subtract one to keep the NEURON numbering convenction
-                try:
-                    #sec_i(midpoints_i[g]).Q1_mech * np.cos(sec_i(midpoints_i[g]).phi1_mech)
-                    LHS_A =  getattr(sec_i(midpoints_i[g]),f'q1_{seci.random_mechname}') * np.cos(getattr(sec_i(midpoints_i[g]),f'f1_{seci.random_mechname}')) #A_(Q​,k) = Q_k * ​cos(ϕ_k​) -> LHS of eq. (12)
-                    #-sec_i(midpoints_i[g]).Q1_mech * np.sin(sec_i(midpoints_i[g]).phi1_mech)
-                    LHS_B = -1 * getattr(sec_i(midpoints_i[g]),f'q1_{seci.random_mechname}') * np.sin(getattr(sec_i(midpoints_i[g]),f'f1_{seci.random_mechname}')) #B_(Q​,k) = −Q_k * ​sin(ϕk​) -> LHS of eq. (13)
-                    RHS_A = 0
-                    RHS_B = 0
-                except:
-                    #print(f'no1: {sec_i}') #Myelin[0] -> Myelin[83]
-                    LHS_A = 1
-                    LHS_B = 1
-                    RHS_A = 0
-                    RHS_B = 0
-                if nseg_i == 1 or g == nseg_i - 1: #if it is a segment at the end of the section (last segment before terminal 1) -> case 3: either last segment or if section only has 1 segment
-                    for c,secc in enumerate(self.connections[start:]): #iterate over all connections where they are stored as (parent, child)
-                        if secc[0] > i: #if we are past section i in the connections
-                            start += c #offset c is used to avoid iterating over the whole list for every section
-                            break #break if we are past section i
-                        if i == secc[0]: #if the connection is where the segment of section i is the parent, and c is the child #secc = (i,c)
-                            sec_c = self.seclist[secc[1]].nrnsec # neuron section
-                            nseg_c = sec_c.nseg #number of segments that section c contains
-                            midpoints_c = [(1+2*i)/(2*nseg_c) for i in range(nseg_c)] #midpoints of the different segments of section c
-                            R_ic = sec_i(1).ri() + sec_c(1/(2*nseg_c)).ri() #resistance between segment of section i and segment of section c
-                            try:
-                                #print(sec_i(midpoints_i[-1]), sec_c(midpoints_c[0]))
-                                #midpoints_i[g] = midpoints_i[-1] -> these are the same in this case
-                                #( ( sec_c(midpoints_c[0]).V1_mech*np.cos(sec_c(midpoints_c[0]).psi1_mech) ) - ( sec_i(midpoints_i[-1]).V1_mech*np.cos(sec_i(midpoints_i[-1]).psi1_mech) ) ) / R_ic
-                                RHS_A += ( (      getattr(sec_c(midpoints_c[0]),f'A_V1_{secc.random_mechname}') * np.cos(getattr(sec_c(midpoints_c[0]),f'phi_V1_{secc.random_mechname}')) ) - (      getattr(sec_i(midpoints_i[-1]),f'A_V1_{seci.random_mechname}') * np.cos(getattr(sec_i(midpoints_i[-1]),f'phi_V1_{seci.random_mechname}')) ) ) / R_ic #RHS of eq. (12)
-                                #( (-sec_c(midpoints_c[0]).V1_mech*np.sin(sec_c(midpoints_c[0]).psi1_mech) ) - (-sec_i(midpoints_i[-1]).V1_mech*np.sin(sec_i(midpoints_i[-1]).psi1_mech) ) ) / R_ic
-                                RHS_B += ( ( -1 * getattr(sec_c(midpoints_c[0]),f'A_V1_{secc.random_mechname}') * np.sin(getattr(sec_c(midpoints_c[0]),f'phi_V1_{secc.random_mechname}')) ) - ( -1 * getattr(sec_i(midpoints_i[-1]),f'A_V1_{seci.random_mechname}') * np.sin(getattr(sec_i(midpoints_i[-1]),f'phi_V1_{seci.random_mechname}')) ) ) / R_ic #RHS of eq. (13)
-                            except:
-                                print(f'no2: {sec_i}, {sec_c}')
-                                pass
-                if nseg_i == 1 or g == 0: #if it is a segment at the beginning of the section (first section after terminal 0) -> case 2: either first segment or if section only has 1 segment
-                    for c,secc in enumerate(self.connections_reversed[start_reversed:]): #iterate over all connections where they are stored as (child, parent)
-                        if secc[0] > i: #if we are past section i in the connections
-                            start_reversed += c #avoiding whole list iteration
-                            break #stop i we are past section i
-                        if i == secc[0]: #where segment i is the child, and c is the parent #sec = (i,c)
-                            sec_c = self.seclist[secc[1]].nrnsec #neuron section
-                            nseg_c = sec_c.nseg #number of segments in section c
-                            midpoints_c = [(1+2*i)/(2*nseg_c) for i in range(nseg_c)] #midpoints of segments in section c                    
-                            R_ic = sec_c(1).ri() + sec_i(1/(2*nseg_i)).ri() #resistance between segment of section c and segment of section i
-                            try:
-                                #print(sec_c(midpoints_c[-1]), sec_i(midpoints_i[0]))
-                                #midpoints_i[g] = midpoints_i[0] 
-                                #( ( sec_c(midpoints_c[-1]).V1_mech*np.cos(sec_c(midpoints_c[-1]).psi1_mech)) - ( sec_i(midpoints_i[0]).V1_mech*np.cos(sec_i(midpoints_i[0]).psi1_mech) ) ) / R_ic 
-                                RHS_A += ( (      getattr(sec_c(midpoints_c[-1]),f'A_V1_{secc.random_mechname}') * np.cos(getattr(sec_c(midpoints_c[-1]),f'phi_V1_{secc.random_mechname}')) ) - (      getattr(sec_i(midpoints_i[0]),f'A_V1_{seci.random_mechname}') * np.cos(getattr(sec_i(midpoints_i[0]),f'phi_V1_{seci.random_mechname}')) ) ) / R_ic #RHS of eq. (12)
-                                #( (-sec_c(midpoints_c[-1]).V1_mech*np.sin(sec_c(midpoints_c[-1]).psi1_mech)) - (-sec_i(midpoints_i[0]).V1_mech*np.sin(sec_i(midpoints_i[0]).psi1_mech) ) ) / R_ic
-                                RHS_B += ( ( -1 * getattr(sec_c(midpoints_c[-1]),f'A_V1_{secc.random_mechname}') * np.sin(getattr(sec_c(midpoints_c[-1]),f'phi_V1_{secc.random_mechname}')) ) - ( -1 * getattr(sec_i(midpoints_i[0]),f'A_V1_{seci.random_mechname}') * np.sin(getattr(sec_i(midpoints_i[0]),f'phi_V1_{seci.random_mechname}')) ) ) / R_ic #RHS of eq. (13)
-                            except:
-                                #print(f'no3: {sec_i}, {sec_c}')
-                                pass
-                if nseg_i != 1:  #if it is a segment next to another segments of the same section -> case 1: segment is between 2 other segments (which are not the terminal segments)
-                    if g != 0: #not the first segment (already removed terminal 0) so we look at connection between the segment and the one before it
-                        R_ic = sec_i(midpoints_i[g]).ri() #resistance between segment and the previous one (the one before it)
-                        try:
-                            #print(sec_i(midpoints_i[g-1]), sec_i(midpoints_i[g]))
-                            #( ( sec_i(midpoints_i[g-1]).V1_mech*np.cos(sec_i(midpoints_i[g-1]).psi1_mech)) - ( sec_i(midpoints_i[g]).V1_mech*np.cos(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            RHS_A += ( (      getattr(sec_i(midpoints_i[g-1]),f'A_V1_{seci.random_mechname}') * np.cos(getattr(sec_i(midpoints_i[g-1]),f'phi_V1_{seci.random_mechname}')) ) - (      getattr(sec_i(midpoints_i[g]),f'A_V1_{seci.random_mechname}') * np.cos(getattr(sec_i(midpoints_i[g]),f'phi_V1_{seci.random_mechname}')) ) ) / R_ic #RHS of eq. (12)
-                            #( (-sec_i(midpoints_i[g-1]).V1_mech*np.sin(sec_i(midpoints_i[g-1]).psi1_mech)) - (-sec_i(midpoints_i[g]).V1_mech*np.sin(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            RHS_B += ( ( -1 * getattr(sec_i(midpoints_i[g-1]),f'A_V1_{secc.random_mechname}') * np.sin(getattr(sec_i(midpoints_i[g-1]),f'phi_V1_{seci.random_mechname}')) ) - ( -1 * getattr(sec_i(midpoints_i[g]),f'A_V1_{seci.random_mechname}') * np.sin(getattr(sec_i(midpoints_i[g]),f'phi_V1_{seci.random_mechname}')) ) ) / R_ic #RHS of eq. (13)
-                        except:
-                            #print(f'no4: {sec_i}, {sec_c}')
-                            pass
-                    if g != nseg_i - 1: #not the last segment (removed terminal 1) so we look at connection between segment and the one after it
-                        R_ic = sec_i(midpoints_i[g+1]).ri() #resistance between segment and the next one (the one after it)
-                        try:
-                            #print(sec_i(midpoints_i[g]), sec_i(midpoints_i[g+1]))
+                        arg_i =   (getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k_flat[indexes[i][g  ]], phi_k_flat[indexes[i][g  ]]) #(getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k[i][g  ], phi_k[i][g  ])
+                        arg_ip1 = (getattr(sec_i(midpoints_i[g+1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g+1]).v, Q_k_flat[indexes[i][g+1]], phi_k_flat[indexes[i][g+1]]) #(getattr(sec_i(midpoints_i[g+1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g+1]).v, Q_k[i][g+1], phi_k[i][g+1])
+                        if sec_i.cm != 0.02:
                             #( ( sec_i(midpoints_i[g+1]).V1_mech*np.cos(sec_i(midpoints_i[g+1]).psi1_mech)) - ( sec_i(midpoints_i[g]).V1_mech*np.cos(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            RHS_A += ( (      getattr(sec_i(midpoints_i[g+1]),f'A_V1_{seci.random_mechname}') * np.cos(getattr(sec_i(midpoints_i[g+1]),f'phi_V1_{seci.random_mechname}')) ) - (      getattr(sec_i(midpoints_i[g]),f'A_V1_{seci.random_mechname}') * np.cos(getattr(sec_i(midpoints_i[g]),f'phi_V1_{seci.random_mechname}')) ) ) / R_ic #RHS of eq. (12)
+                            h(f"RHS_13 += ( (  A_V1_{seci.random_mechname}{arg_ip1} * cos(phi_V1_{seci.random_mechname}{arg_ip1}) ) - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
                             #( (-sec_i(midpoints_i[g+1]).V1_mech*np.sin(sec_i(midpoints_i[g+1]).psi1_mech)) - (-sec_i(midpoints_i[g]).V1_mech*np.sin(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            RHS_B += ( ( -1 * getattr(sec_i(midpoints_i[g+1]),f'A_V1_{secc.random_mechname}') * np.sin(getattr(sec_i(midpoints_i[g+1]),f'phi_V1_{seci.random_mechname}')) ) - ( -1 * getattr(sec_i(midpoints_i[g]),f'A_V1_{seci.random_mechname}') * np.sin(getattr(sec_i(midpoints_i[g]),f'phi_V1_{seci.random_mechname}')) ) ) / R_ic #RHS of eq. (13)
-                        except:
-                            #print(f'no5: {sec_i}, {sec_c}')
-                            pass
-                    
-                try:
-                    RHS_A /= 2*np.pi*sec_i(midpoints_i[g]).Fdrive_mech* np.pi*(sec_i(midpoints_i[g]).diam/2)**2 #we divide the RHS of eq. (12) after taking the summation
-                    RHS_B /= 2*np.pi*sec_i(midpoints_i[g]).Fdrive_mech* np.pi*(sec_i(midpoints_i[g]).diam/2)**2 #we divide the RHS of eq. (13) after taking the summation
-                    def A(q1, f1):
-                        return LHS_A - RHS_A
-                    def B(q1, f1):
-                        return LHS_B - RHS_B
-                    def norm2(q1, f1):
-                        return A(q1, f1)**2 + B(q1, f1)**2
-                    solution = minimize(norm2,[sec_i(midpoints_i[g]).Q1_mech,sec_i(midpoints_i[g]).phi1_mech]) #solve the equation for both eq. (12) and eq. (13)
-                    sec_i.Q1_mech, sec_i.phi1_mech = solution.x #update A_(Q,k) and ϕ_k
-                except:
-                    #print(f'no6: {sec_i}')
-                    pass
-        quit()
+                            h(f"RHS_12 += ( ( -A_V1_{seci.random_mechname}{arg_ip1} * sin(phi_V1_{seci.random_mechname}{arg_ip1}) ) - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
+                        else:
+                            h(f"RHS_13 += ( (  {Q_k_flat[indexes[i][g+1]]} * cos({phi_k_flat[indexes[i][g+1]]}) ) - (  {Q_k_flat[indexes[i][g]]} * cos({phi_k_flat[indexes[i][g]]}) ) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_A = ( (  {Q_k[i][g+1]} * cos({phi_k[i][g+1]}) ) - (  {Q_k[i][g]} * cos({phi_k[i][g]}) ) ) / {R_ic} / {sec_i.cm}")
+                            h(f"RHS_12 += ( ( -{Q_k_flat[indexes[i][g+1]]} * sin({phi_k_flat[indexes[i][g+1]]}) ) - ( -{Q_k_flat[indexes[i][g]]} * sin({phi_k_flat[indexes[i][g]]}) ) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_B = ( ( -{Q_k[i][g+1]} * sin({phi_k[i][g+1]}) ) - ( -{Q_k[i][g]} * sin({phi_k[i][g]}) ) ) / {R_ic} / {sec_i.cm}")
+                        #RHS_A += h.RHS_A
+                        #RHS_B += h.RHS_B
+                eq_12 = LHS_12-h.RHS_12
+                eq_13 = LHS_12-h.RHS_12
+                res_12[iterator] = eq_12
+                res_13[iterator] = eq_13
+                iterator += 1
+
+        #return 0
+        #print(np.where((res_12 != 0))[0]) #give all segment indexes where the residual is not exactly 0
+        #print(np.where((res_13 != 0))[0])
+        #print(np.linalg.norm(res_12) + np.linalg.norm(res_13)) 
+        if DEBUG_OV:
+            end_time = time.perf_counter()
+            print(f'iteration time: {(end_time-start_time)//60} min , {(end_time-start_time)%60} sec')
+        return np.linalg.norm(res_12) + np.linalg.norm(res_13) #return the norm of the vector with the residuals of eq. 12 and eq. 13
 
 
-    def advance(self):
+    def update_overtones(self, solution, k):
+        """ updating q_k and f_k: this is done before h.fadvance() as update() is also done before anything else in the NMODL file
+            :solution: the solved overtones
+            :k: which overtone"""
+
+        Q = solution[:len(solution)//2]
+        phi = solution[len(solution)//2:]
+        assert len(Q) == len(phi), 'Q and phi have different length' #length = # of segments
+        assert len(Q) == len(self.Q[k]), 'Q and Q[k] have different length'
+        self.Q[k] = Q
+        self.phi[k] = phi
+        iterator = 0
+
+        for sec in self.seclist:
+            for seg in sec.nrnsec:
+                for mech in sec.relevant_mechs:
+                    setattr(seg,f'q1_{mech}',Q[iterator])
+                    setattr(seg,f'f1_{mech}',phi[iterator])
+                iterator += 1
+
+
+    def advance(self, update_ov=0):
         ''' Advance simulation onto the next time step. '''
 
-        for k in range(OVERTONES):
-            self.solve_overtones(self.Q[k],self.phi[k],k)
-        quit()
-        #self.update_overtones()
+        if update_ov:
+            for k in range(OVERTONES):
+                Q_phi = np.append(self.Q[k],self.phi[k])
+                bounds_Qf = [(0, 0.001) for e in self.Q[k]] + [(0, 2*np.pi) for e in self.phi[k]]
+
+                if DEBUG_OV:
+                    #print(bounds_Qf)
+                    for i in range(6):
+                        a = self.solve_overtones(Q_phi,k)
+                    print(a)
+                    print('------------------')
+                    quit()
+                    start_time = time.time()
+
+                result = minimize(self.solve_overtones,Q_phi,args=k, bounds = bounds_Qf)
+
+                if DEBUG_OV:
+                    dt = time.time()-start_time
+                    print(f"{dt//60} minutes {dt%60} seconds")
+
+                solution = result.x
+                #solution = Q_phi #for debugging
+                #print(len(solution))
+
+                if DEBUG_OV:
+                    print(f'solution = {solution}')
+
+                self.update_overtones(solution,k)
+                
+                if DEBUG_OV:
+                    quit()
 
         #update the LUT according to the new overtone values -> not necessary as LUT can be more than 2-dimensional
         #self.setFuncTables()
