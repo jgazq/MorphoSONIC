@@ -419,18 +419,41 @@ class NeuronModel(metaclass=abc.ABCMeta):
         t_next, t_step = 1, 1 #1, 1 #0.0010, 0.0010
         T_up_next, T_up_step = 0.05, 0.05 #next update moment and update step of overtones
         print(f'tstop = {tstop}') #LOG OUTPUT
+        test_it = 0
         while h.t < tstop: #BREAKPOINT
             #time.sleep(5)
             print(f'\n\n new timestep: {h.t}\n\n')
+            # for e in h.allsec():
+            #     try:
+            #         print(e.f1_pas_eff)
+            #         if e.f1_pas_eff != 0:
+            #             raise TypeError
+            #     except:
+            #         try:
+            #             print(e.f1_pas_eff2)
+            #             if e.f1_pas_eff2 != 0:
+            #                 raise TypeError
+            #         except:
+            #             try:
+            #                 if e.f1_pas_eff0_02 != 0:
+            #                     raise TypeError
+            #             except:
+            #                 print(e)
+            #                 print('None')
+
             if h.t > t_next:
                 #print(dir(h))
                 print(f'h.t = {h.t}') #LOG OUTPUT
                 t_next += t_step
+            # if test_it == 2:
+            #     pass
+            #     quit()
+            # test_it += 1
             if OVERTONES:
                 if h.t > T_up_next:
                     print('overtones update')
                     T_up_next += T_up_step
-                    self.advance(1)
+                    self.advance(0)
                 else:
                     self.advance()
             else:
@@ -892,7 +915,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
                         else:
                             fillTable = getattr(h, f'table_{fname}_{mech}')
                         #print(f"fillTable1: {fillTable}")
-                        mat_ptr = numpy_element_ref(matrix, 0)
+                        mat_ptr = numpy_element_ref(matrix, 0) #pass the pointer of the numpy matrix to the FUNCTION TABLE
                         #fillTable(mat_ptr, nx, min(xref), max(xref), ny, min(yref), max(yref), float(overtones[0]), float(min(overtones[1])), float(max(overtones[1])), float(overtones[2]), float(min(overtones[3])), float(max(overtones[3]))) #call the table filler for every mechanisms that contains V LUT
                         fillTable(mat_ptr, nx, xref._ref_x[0], ny, yref._ref_x[0],*overtones) #call the table filler for every mechanisms that contains V LUT
                     except:
