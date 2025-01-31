@@ -342,6 +342,10 @@ class nrn(SpatiallyExtendedNeuronModel):
         print(f'CELL IS CREATED: {len(self.seclist)} sections')
         self.loc_soma = (somas['soma0'].x_xtra, somas['soma0'].y_xtra, somas['soma0'].z_xtra)
 
+        #print(f"self.connections: {self.connections}")
+        #print(f'len(self.segments): {len(self.segments)}')
+        #quit()
+
     
     def clearSections(self):
         self.__dell__()

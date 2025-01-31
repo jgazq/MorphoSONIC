@@ -415,7 +415,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
     def integrateUntil(self, tstop):
         logger.debug(f'integrating system using {self.getIntegrationMethod()}')
         h.t = 0
-        self.Q, self.phi = np.zeros((OVERTONES,len(self.segments))), np.zeros((OVERTONES,len(self.segments)))
+        if OVERTONES:
+            self.Q, self.phi = np.zeros((OVERTONES,len(self.segments))), np.zeros((OVERTONES,len(self.segments)))
+            self.init_overtones()
+        quit()
         t_next, t_step = 1, 1 #1, 1 #0.0010, 0.0010
         T_up_next, T_up_step = 0.05, 0.05 #next update moment and update step of overtones
         print(f'tstop = {tstop}') #LOG OUTPUT
@@ -453,11 +456,100 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 if h.t > T_up_next:
                     print('overtones update')
                     T_up_next += T_up_step
-                    self.advance(0)
+                    self.advance(1)
                 else:
-                    self.advance()
+                    self.advance(1) #0
             else:
                 self.advance()
+    
+    def init_overtones(self):
+        """ init """
+
+        start = 0
+        start_reversed = 0
+        
+        connections = self.connections
+        connections_reversed = self.connections_reversed
+        indexes = self.indexes
+
+        nseg = len(self.segments)
+        nov = OVERTONES
+        "dimensions order: 2(A/B), overtones, nseg"
+        self.Identity = np.identity(nseg)
+        Rsingle = np.full((nseg,nseg),np.inf) 
+        R = np.full((nseg,nseg),np.inf) 
+        C_flat = np.zeros((nseg,nov,2)) #in opposite order because flatten works in this order
+        G = np.zeros((2*nov*nseg,nseg))
+
+        iterator = 0
+        for i,seci in enumerate(self.seclist): #iterate over all sections i -> sec_i
+            sec_i = seci.nrnsec #neuron section
+            nseg_i = sec_i.nseg #number of segments that the section i contains
+            midpoints_i = [(1+2*i)/(2*nseg_i) for i in range(nseg_i)] #midpoints of the different segments of section i
+            for g, seg in enumerate(sec_i): #iterate over all the segments in section i
+                print(iterator,nseg_i)
+                for k in range(nov):
+                    C_flat[iterator,k,0] = C_flat[iterator,k,1] = 1/((k+1)*seg.area()*(2*np.pi*self.fref))
+
+                "CASE 3: segment and subsequent segment of subsequent section"
+                if g == nseg_i - 1: #if it is a segment at the end of the section (last segment before terminal 1) -> case 3
+                    for c,i_c in enumerate(connections[start:]): #iterate over all connections where they are stored as (parent, child)
+                        if i_c[0] > i: #if we are past section i in the connections
+                            start += c #offset c is used to avoid iterating over the whole list for every section
+                            break #break if we are past section i
+                        if i == i_c[0]: #if the connection is where the segment of section i is the parent, and c is the child #secc = (i,c)
+                            secc = self.seclist[i_c[1]]
+                            sec_c = secc.nrnsec # neuron section
+                            nseg_c = sec_c.nseg #number of segments that section c contains
+                            R_ic = sec_i(1).ri() + sec_c(1/(2*nseg_c)).ri() #resistance between segment of section i and segment of section c
+                            R[indexes[i_c[0]][-1],indexes[i_c[1]][0]] = Rsingle[indexes[i_c[0]][-1],indexes[i_c[1]][0]] = R_ic
+                            R[indexes[i_c[1]][0],indexes[i_c[0]][-1]] = R_ic
+                            print(f'case3: ({indexes[i_c[0]][-1]}, {indexes[i_c[1]][0]})')
+
+                "CASE 2: segment and preceding segment of preceding section"
+                if g == 0: #if it is a segment at the beginning of the section (first section after terminal 0) -> case 2
+                    for c,i_c in enumerate(connections_reversed[start_reversed:]): #iterate over all connections where they are stored as (child, parent)
+                        if i_c[0] > i: #if we are past section i in the connections
+                            start_reversed += c #avoiding whole list iteration
+                            break #stop i we are past section i
+                        if i == i_c[0]: #where segment i is the child, and c is the parent #sec = (i,c)
+                            secc = self.seclist[i_c[1]]
+                            sec_c = secc.nrnsec #neuron section
+                            nseg_c = sec_c.nseg #number of segments in section c                 
+                            R_ic = sec_c(1).ri() + sec_i(1/(2*nseg_i)).ri() #resistance between segment of section c and segment of section i
+                            R[indexes[i_c[1]][-1],indexes[i_c[0]][0]] = Rsingle[indexes[i_c[1]][-1],indexes[i_c[0]][0]] = R_ic
+                            R[indexes[i_c[0]][0],indexes[i_c[1]][-1]] = R_ic
+                            print(f'case2: ({indexes[i_c[1]][-1]}, {indexes[i_c[0]][0]})')
+
+                "CASE 1"
+                if nseg_i != 1:  #if it is a segment next to another segments of the same section -> case 1: segment is between 2 other segments (which are not the terminal segments)
+                    "segment and preceding segment of the same section"
+                    if g != 0: #not the first segment so we look at connection between the segment and the one before it
+                        R_ic = sec_i(midpoints_i[g]).ri() #resistance between segment and the previous one (the one before it)
+                        R[iterator-1,iterator] = Rsingle[iterator-1,iterator] = R_ic
+                        R[iterator,iterator-1] = R_ic
+                        print(f'case1.2: ({iterator-1}, {iterator})')
+
+                    "segment and subsequent segment of the same section"
+                    if g != nseg_i - 1: #not the last segment so we look at connection between segment and the one after it
+                        R_ic = sec_i(midpoints_i[g+1]).ri() #resistance between segment and the next one (the one after it)
+                        R[iterator,iterator+1] = Rsingle[iterator,iterator+1] = R_ic
+                        R[iterator+1,iterator] = R_ic
+                        print(f'case1.3: ({iterator}, {iterator+1})')
+
+                iterator += 1
+        C = np.diag(C_flat.flatten())
+        G = 1/R
+        Grep = np.repeat(G, 2*nov , axis=0)
+        Gext = np.repeat(Grep, 2*nov , axis=1)
+        Gsum = np.sum(Grep,axis=1)
+        Gsumdiag = np.diag(Gsum)
+        print(f'C.shape: {C.shape}, G.shape: {G.shape}, Grep.shape: {Grep.shape}, Gext.shape: {Gext.shape}, Gsum.shape: {Gsum.shape}, Gsumdiag.shape: {Gsumdiag.shape}')
+        print(R)
+        print(sum(np.sum((G>0)*1,axis=1)))
+        return
+    
+    
 
     def solve_overtones(self, Q_k_flat_phi_k_flat, k):
         """ equation that returns LHS-RHS of eq. (12) and eq. (13)
@@ -486,6 +578,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
         connections = self.connections
         connections_reversed = self.connections_reversed
         indexes = self.indexes
+        seg_connections = np.zeros((len(Q_k_flat),len(Q_k_flat))) #np.full((len(Q_k_flat),len(Q_k_flat)), -1)
 
 
         #reorden A_Qk and B_Qk so they can be indexed by (section, segment)
@@ -513,6 +606,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
             nseg_i = sec_i.nseg #number of segments that the section i contains
             midpoints_i = [(1+2*i)/(2*nseg_i) for i in range(nseg_i)] #midpoints of the different segments of section i
             for g, seg in enumerate(sec_i): #iterate over all the segments in section i
+                print(iterator,nseg_i)
                 #sec_i(midpoints_i[g]).Q1_mech * np.cos(sec_i(midpoints_i[g]).phi1_mech)
                 #if A_Qk[i][g] != A_Qk_flat[self.indexes[i][g]]:
                 #    print(A_Qk[i][g], )
@@ -521,7 +615,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 LHS_13 = B_Qk_flat[indexes[i][g]] #B_Qk[i][g]
                 h("RHS_12 = 0") #RHS_A = 0
                 h("RHS_13 = 0") #RHS_B = 0
-                "segment and subsequent segment of subsequent section"
+                "CASE 3: segment and subsequent segment of subsequent section"
                 if g == nseg_i - 1: #if it is a segment at the end of the section (last segment before terminal 1) -> case 3
                     for c,i_c in enumerate(connections[start:]): #iterate over all connections where they are stored as (parent, child)
                         if i_c[0] > i: #if we are past section i in the connections
@@ -533,6 +627,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             nseg_c = sec_c.nseg #number of segments that section c contains
                             midpoints_c = [(1+2*i)/(2*nseg_c) for i in range(nseg_c)] #midpoints of the different segments of section c
                             R_ic = sec_i(1).ri() + sec_c(1/(2*nseg_c)).ri() #resistance between segment of section i and segment of section c
+                            seg_connections[indexes[i_c[0]][-1],indexes[i_c[1]][0]] = R_ic
+                            print(f'case3: ({indexes[i_c[0]][-1]}, {indexes[i_c[1]][0]})')
                             #print(sec_i(midpoints_i[-1]), sec_c(midpoints_c[0]))
                             #midpoints_i[g] = midpoints_i[-1] -> these are the same in this case
                             #print(i_c[0],i_c[1])
@@ -556,7 +652,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             #RHS_B += h.RHS_B_P1 + h.RHS_B_P2
                     #quit()
 
-                "segment and preceding segment of preceding section"
+                "CASE 2: segment and preceding segment of preceding section"
                 if g == 0: #if it is a segment at the beginning of the section (first section after terminal 0) -> case 2
                     for c,i_c in enumerate(connections_reversed[start_reversed:]): #iterate over all connections where they are stored as (child, parent)
                         if i_c[0] > i: #if we are past section i in the connections
@@ -568,6 +664,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             nseg_c = sec_c.nseg #number of segments in section c
                             midpoints_c = [(1+2*i)/(2*nseg_c) for i in range(nseg_c)] #midpoints of segments in section c                    
                             R_ic = sec_c(1).ri() + sec_i(1/(2*nseg_i)).ri() #resistance between segment of section c and segment of section i
+                            seg_connections[indexes[i_c[1]][-1],indexes[i_c[0]][0]] = R_ic
+                            print(f'case2: ({indexes[i_c[1]][-1]}, {indexes[i_c[0]][0]})')
                             #print(sec_c(midpoints_c[-1]), sec_i(midpoints_i[0]))
                             #midpoints_i[g] = midpoints_i[0] 
                             arg_i = (getattr(sec_i(midpoints_i[0]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[0]).v, Q_k_flat[indexes[i_c[0]][0]], phi_k_flat[indexes[i_c[0]][0]])#(getattr(sec_i(midpoints_i[0]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[0]).v, Q_k[i_c[0]][0], phi_k[i_c[0]][0])
@@ -589,10 +687,13 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             #RHS_A += h.RHS_A_P1 + h.RHS_A_P2
                             #RHS_B += h.RHS_B_P1 + h.RHS_B_P2
 
+                "CASE 1"
                 if nseg_i != 1:  #if it is a segment next to another segments of the same section -> case 1: segment is between 2 other segments (which are not the terminal segments)
                     "segment and preceding segment of the same section"
                     if g != 0: #not the first segment so we look at connection between the segment and the one before it
                         R_ic = sec_i(midpoints_i[g]).ri() #resistance between segment and the previous one (the one before it)
+                        seg_connections[iterator-1,iterator] = R_ic
+                        print(f'case1.2: ({iterator-1}, {iterator})')
                         #print(sec_i(midpoints_i[g-1]), sec_i(midpoints_i[g]))
                         arg_i =   (getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k_flat[indexes[i][g  ]], phi_k_flat[indexes[i][g  ]]) #(getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k[i][g  ], phi_k[i][g  ])
                         arg_im1 = (getattr(sec_i(midpoints_i[g-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g-1]).v, Q_k_flat[indexes[i][g-1]], phi_k_flat[indexes[i][g-1]]) #(getattr(sec_i(midpoints_i[g-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g-1]).v, Q_k[i][g-1], phi_k[i][g-1])
@@ -609,6 +710,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
                     "segment and subsequent segment of the same section"
                     if g != nseg_i - 1: #not the last segment so we look at connection between segment and the one after it
                         R_ic = sec_i(midpoints_i[g+1]).ri() #resistance between segment and the next one (the one after it)
+                        seg_connections[iterator,iterator+1] = R_ic
+                        print(f'case1.3: ({iterator}, {iterator+1})')
                         #print(sec_i(midpoints_i[g]), sec_i(midpoints_i[g+1]))
                         arg_i =   (getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k_flat[indexes[i][g  ]], phi_k_flat[indexes[i][g  ]]) #(getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k[i][g  ], phi_k[i][g  ])
                         arg_ip1 = (getattr(sec_i(midpoints_i[g+1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g+1]).v, Q_k_flat[indexes[i][g+1]], phi_k_flat[indexes[i][g+1]]) #(getattr(sec_i(midpoints_i[g+1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g+1]).v, Q_k[i][g+1], phi_k[i][g+1])
@@ -635,6 +738,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
         if DEBUG_OV:
             end_time = time.perf_counter()
             print(f'iteration time: {(end_time-start_time)//60} min , {(end_time-start_time)%60} sec')
+        print(seg_connections)
+        print(sum(np.sum((seg_connections>0)*1,axis=1)))
         return np.linalg.norm(res_12) + np.linalg.norm(res_13) #return the norm of the vector with the residuals of eq. 12 and eq. 13
 
 
@@ -669,7 +774,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
                 if DEBUG_OV:
                     #print(bounds_Qf)
-                    for i in range(6):
+                    for i in range(1):
                         a = self.solve_overtones(Q_phi,k)
                     print(a)
                     print('------------------')
