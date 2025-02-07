@@ -13,6 +13,8 @@ from scipy import stats
 import time
 from scipy.optimize import least_squares, minimize
 import ctypes
+from scipy.interpolate import interp1d, interpn
+import pprint
 
 from PySONIC.core import Model, PointNeuron, BilayerSonophore, EffectiveVariablesDict
 from PySONIC.core.timeseries import TimeSeries, SpatiallyExtendedTimeSeries
@@ -416,9 +418,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
         logger.debug(f'integrating system using {self.getIntegrationMethod()}')
         h.t = 0
         if OVERTONES:
-            self.Q, self.phi = np.zeros((OVERTONES,len(self.segments))), np.zeros((OVERTONES,len(self.segments)))
             self.init_overtones()
-        quit()
+        #quit()
         t_next, t_step = 1, 1 #1, 1 #0.0010, 0.0010
         T_up_next, T_up_step = 0.05, 0.05 #next update moment and update step of overtones
         print(f'tstop = {tstop}') #LOG OUTPUT
@@ -426,26 +427,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
         while h.t < tstop: #BREAKPOINT
             #time.sleep(5)
             print(f'\n\n new timestep: {h.t}\n\n')
-            # for e in h.allsec():
-            #     try:
-            #         print(e.f1_pas_eff)
-            #         if e.f1_pas_eff != 0:
-            #             raise TypeError
-            #     except:
-            #         try:
-            #             print(e.f1_pas_eff2)
-            #             if e.f1_pas_eff2 != 0:
-            #                 raise TypeError
-            #         except:
-            #             try:
-            #                 if e.f1_pas_eff0_02 != 0:
-            #                     raise TypeError
-            #             except:
-            #                 print(e)
-            #                 print('None')
-
             if h.t > t_next:
-                #print(dir(h))
                 print(f'h.t = {h.t}') #LOG OUTPUT
                 t_next += t_step
             # if test_it == 2:
@@ -458,7 +440,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
                     T_up_next += T_up_step
                     self.advance(1)
                 else:
-                    self.advance(1) #0
+                    self.advance() #0
             else:
                 self.advance()
     
@@ -472,14 +454,18 @@ class NeuronModel(metaclass=abc.ABCMeta):
         connections_reversed = self.connections_reversed
         indexes = self.indexes
 
-        nseg = len(self.segments)
-        nov = OVERTONES
+        self.nseg = len(self.segments)
+        self.nov = OVERTONES
         "dimensions order: 2(A/B), overtones, nseg"
-        self.Identity = np.identity(nseg)
-        Rsingle = np.full((nseg,nseg),np.inf) 
-        R = np.full((nseg,nseg),np.inf) 
-        C_flat = np.zeros((nseg,nov,2)) #in opposite order because flatten works in this order
-        G = np.zeros((2*nov*nseg,nseg))
+
+        self.AB = np.zeros(2*self.nov*self.nseg)
+        #self.A, self.B = np.zeros((OVERTONES,len(self.segments))), np.zeros((OVERTONES,len(self.segments)))
+
+        self.Identity = np.identity(2*self.nov*self.nseg)
+        Rsingle = np.full((self.nseg,self.nseg),np.inf) 
+        R = np.full((self.nseg,self.nseg),np.inf) 
+        C_flat = np.zeros((self.nseg,self.nov,2)) #in opposite order because flatten works in this order
+        G = np.zeros((2*self.nov*self.nseg,self.nseg))
 
         iterator = 0
         for i,seci in enumerate(self.seclist): #iterate over all sections i -> sec_i
@@ -487,8 +473,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
             nseg_i = sec_i.nseg #number of segments that the section i contains
             midpoints_i = [(1+2*i)/(2*nseg_i) for i in range(nseg_i)] #midpoints of the different segments of section i
             for g, seg in enumerate(sec_i): #iterate over all the segments in section i
-                print(iterator,nseg_i)
-                for k in range(nov):
+                #print(iterator,nseg_i)
+                for k in range(self.nov):
                     C_flat[iterator,k,0] = C_flat[iterator,k,1] = 1/((k+1)*seg.area()*(2*np.pi*self.fref))
 
                 "CASE 3: segment and subsequent segment of subsequent section"
@@ -504,7 +490,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             R_ic = sec_i(1).ri() + sec_c(1/(2*nseg_c)).ri() #resistance between segment of section i and segment of section c
                             R[indexes[i_c[0]][-1],indexes[i_c[1]][0]] = Rsingle[indexes[i_c[0]][-1],indexes[i_c[1]][0]] = R_ic
                             R[indexes[i_c[1]][0],indexes[i_c[0]][-1]] = R_ic
-                            print(f'case3: ({indexes[i_c[0]][-1]}, {indexes[i_c[1]][0]})')
+                            #print(f'case3: ({indexes[i_c[0]][-1]}, {indexes[i_c[1]][0]})')
 
                 "CASE 2: segment and preceding segment of preceding section"
                 if g == 0: #if it is a segment at the beginning of the section (first section after terminal 0) -> case 2
@@ -519,7 +505,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             R_ic = sec_c(1).ri() + sec_i(1/(2*nseg_i)).ri() #resistance between segment of section c and segment of section i
                             R[indexes[i_c[1]][-1],indexes[i_c[0]][0]] = Rsingle[indexes[i_c[1]][-1],indexes[i_c[0]][0]] = R_ic
                             R[indexes[i_c[0]][0],indexes[i_c[1]][-1]] = R_ic
-                            print(f'case2: ({indexes[i_c[1]][-1]}, {indexes[i_c[0]][0]})')
+                            #print(f'case2: ({indexes[i_c[1]][-1]}, {indexes[i_c[0]][0]})')
 
                 "CASE 1"
                 if nseg_i != 1:  #if it is a segment next to another segments of the same section -> case 1: segment is between 2 other segments (which are not the terminal segments)
@@ -528,30 +514,91 @@ class NeuronModel(metaclass=abc.ABCMeta):
                         R_ic = sec_i(midpoints_i[g]).ri() #resistance between segment and the previous one (the one before it)
                         R[iterator-1,iterator] = Rsingle[iterator-1,iterator] = R_ic
                         R[iterator,iterator-1] = R_ic
-                        print(f'case1.2: ({iterator-1}, {iterator})')
+                        #print(f'case1.2: ({iterator-1}, {iterator})')
 
                     "segment and subsequent segment of the same section"
                     if g != nseg_i - 1: #not the last segment so we look at connection between segment and the one after it
                         R_ic = sec_i(midpoints_i[g+1]).ri() #resistance between segment and the next one (the one after it)
                         R[iterator,iterator+1] = Rsingle[iterator,iterator+1] = R_ic
                         R[iterator+1,iterator] = R_ic
-                        print(f'case1.3: ({iterator}, {iterator+1})')
+                        #print(f'case1.3: ({iterator}, {iterator+1})')
 
                 iterator += 1
-        C = np.diag(C_flat.flatten())
+        self.C = np.diag(C_flat.flatten())
         G = 1/R
-        Grep = np.repeat(G, 2*nov , axis=0)
-        Gext = np.repeat(Grep, 2*nov , axis=1)
+        Grep = np.repeat(G, 2*self.nov , axis=0)
+        self.Gext = np.repeat(Grep, 2*self.nov , axis=1)
         Gsum = np.sum(Grep,axis=1)
-        Gsumdiag = np.diag(Gsum)
-        print(f'C.shape: {C.shape}, G.shape: {G.shape}, Grep.shape: {Grep.shape}, Gext.shape: {Gext.shape}, Gsum.shape: {Gsum.shape}, Gsumdiag.shape: {Gsumdiag.shape}')
-        print(R)
-        print(sum(np.sum((G>0)*1,axis=1)))
+        self.Gsumdiag = np.diag(Gsum)
+        self.G = G
+        #print(R)
+        #print(sum(np.sum((G>0)*1,axis=1)))
         return
-    
+
+
+    def calc_jac(self, ABovseg):
+        """ calculation of jacobian """
+
+        mult = 2*self.nov
+        "dimensions order: 2(A/B), overtones, nseg"
+        LUTseci_1 = np.identity(self.nseg) #simplified structure with a 1 representing a filled block and a 0 representing an empty block
+        LUTsecc_1 = (self.G>0)*1 #simplified structure with a 1 representing a filled block and a 0 representing an empty block
+        self.LUTseci = np.repeat(np.repeat(LUTseci_1,mult,axis=0),mult,axis=1)
+        self.LUTsecc = np.repeat(np.repeat(LUTsecc_1,mult,axis=0),mult,axis=1)
+
+        #LUTs = []
+        Jac = self.pylkp.Jac
+        refs = list(Jac.refs.values())
+        refs_ext = refs.copy()
+        refs_ext[1] = self.pylkp.Q_ext
+
+        A = ABovseg[::2]
+        B = ABovseg[1::2]
+        for nov in range(OVERTONES):
+            Ak = A[nov::OVERTONES] #list containing the A's for a specific overtone for all segments
+            Bk = B[nov::OVERTONES] #start with the desired overtone an take steps in the size of the number of overtones to take the same overtone every time
+
+            iterator = 0
+            for sec in self.seclist:
+                for seg in sec.nrnsec:
+                    for mech in sec.relevant_mechs:
+                        setattr(seg,f'a1_{mech}',Ak[iterator])
+                        setattr(seg,f'b1_{mech}',Bk[iterator])
+                    iterator += 1
+
+        iterator = 0
+        for sec in self.seclist:
+            for seg in sec.nrnsec:
+                Cm0 = Cm0_map[seg.cm]
+                dV_dQ_i = np.array([[f'd{ABV}V{vov+1}{Cm0}_d{ABQ}Q{qov+1}{Cm0}' for ABQ in ['A', 'B'] for vov in range(self.nov)] for ABV in ['B','A'] for qov in range(self.nov)]) #block matrix containing the string versions or visual versions of the derivatives
+                block = np.zeros((mult, mult)) #actual block
+                for ir, row in enumerate(dV_dQ_i):
+                    for ic, column in enumerate(row):
+                        xi = [getattr(seg,f'A_t_{sec.random_mechname}')/PA_TO_KPA,seg.v/C_M2_TO_NC_CM2] #determine the input values for the LUT from the segment
+                        for i in range(self.nov):
+                            Ak = A[i::self.nov] #list containing the A's for a specific overtone for all segments
+                            Bk = B[i::self.nov] #start with the desired overtone an take steps in the size of the number of overtones to take the same overtone every time
+                            a = Ak[iterator//mult] #a = getattr(seg,f'a{i+1}_{sec.random_mechname}')
+                            b = Bk[iterator//mult] #b = getattr(seg,f'b{i+1}_{sec.random_mechname}')
+                            xi += [a, b]
+                        if seg.cm == 2:
+                            block[ir,ic] = interpn(refs_ext,Jac[column],xi)[0] #interpolate the Jacobian for the point where the segment is currently at
+                        elif seg.cm == 0.02: #in the case of myelin, the derivative is 1/cm if X=Y in dX/dY, otherwise it is 0
+                            split4 = column.split('_') #the string should be splitted in 4 strings
+                            XY = (split4[0].replace('V','Q') == split4[2])
+                            block[ir,ic] = 1/seg.cm if XY else 0
+                        else:
+                            block[ir,ic] = interpn(refs,Jac[column],xi)[0] 
+                self.LUTseci[iterator:iterator+mult] = np.tile(block,self.nseg) * self.LUTseci[iterator:iterator+mult] #multiply the block by the repeated identity matrix
+                self.LUTsecc[iterator:iterator+mult] = np.tile(block,self.nseg) * self.LUTsecc[iterator:iterator+mult] #multiply the block by the repeated connection matrix
+                iterator += mult
+        self.LUTsecc = np.transpose(self.LUTsecc) #transpose because we actually needed to do column multiplication but easier to implement row multiplication in numpy
+        #print(f'I:{self.Identity.shape} + C: {self.C.shape} * Gext: {self.Gext.shape} *~ LUTsecc:{self.LUTsecc.shape} - C:{self.C.shape} *Gsumdiag: {self.Gsumdiag.shape} * LUTseci:{self.LUTseci.shape}')
+        Jac = self.Identity + np.multiply(np.matmul(self.C, self.Gext), self.LUTsecc) + np.matmul(np.matmul(self.C, self.Gsumdiag), self.LUTseci)
+        return np.linalg.norm(Jac,axis=1)
     
 
-    def solve_overtones(self, Q_k_flat_phi_k_flat, k):
+    def solve_overtone(self, A_Qk_flat, B_Qk_flat, k):
         """ equation that returns LHS-RHS of eq. (12) and eq. (13)
             :A_Qk_flat: array/vector containing A_(Q,k) for all sections
             :B_Qk_flat: array/vector containing B_(Q,k) for all sections
@@ -564,39 +611,15 @@ class NeuronModel(metaclass=abc.ABCMeta):
         # print(f'self.connections: {self.connections}\n')
         # print(f'self.connections_reversed: {self.connections_reversed}\n')
         # print(f'self.connections_double: {self.connections_double}\n')
-        Q_k_flat = Q_k_flat_phi_k_flat[:len(Q_k_flat_phi_k_flat)//2]
-        phi_k_flat = Q_k_flat_phi_k_flat[len(Q_k_flat_phi_k_flat)//2:]
-        #indexesQ = np.where((Q_k_flat!= 0))[0]
-        #indexesphi= np.where((phi_k_flat!= 0))[0]
-        #print(indexesQ,indexesphi)
 
-        assert len(Q_k_flat) == len(phi_k_flat), 'A_Q and B_Q have different length' #length = # of segments
-        A_Qk_flat = Q_k_flat * np.cos(phi_k_flat)  #A_(Q​,k) = Q_k * ​cos(ϕ_k​) -> LHS of eq. (12)
-        B_Qk_flat = - Q_k_flat * np.sin(phi_k_flat) #B_(Q​,k) = −Q_k * ​sin(ϕk​) -> LHS of eq. (13)
-        res_12, res_13 = np.zeros(len(Q_k_flat)), np.zeros(len(Q_k_flat)) #results/residuals
+
+        assert len(A_Qk_flat) == len(A_Qk_flat), 'A_Q and B_Q have different length' #length = # of segments
+        res_12, res_13 = np.zeros(len(A_Qk_flat)), np.zeros(len(B_Qk_flat)) #results/residuals
         
         connections = self.connections
         connections_reversed = self.connections_reversed
         indexes = self.indexes
-        seg_connections = np.zeros((len(Q_k_flat),len(Q_k_flat))) #np.full((len(Q_k_flat),len(Q_k_flat)), -1)
 
-
-        #reorden A_Qk and B_Qk so they can be indexed by (section, segment)
-        # iterator = 0
-        # A_Qk, B_Qk = [], []
-        # Q_k, phi_k = [], []
-        # for sec in self.nrnseclist:
-        #     A, B, Q, phi = [], [], [], []
-        #     for seg in sec:
-        #         A.append(A_Qk_flat[iterator])
-        #         B.append(B_Qk_flat[iterator])
-        #         Q.append(Q_k_flat[iterator])
-        #         phi.append(phi_k_flat[iterator])
-        #         iterator += 1
-        #     A_Qk.append(A)
-        #     B_Qk.append(B)
-        #     Q_k.append(Q)
-        #     phi_k.append(phi)
 
         #print(len(Q_k), len(phi_k))
         iterator = 0
@@ -606,7 +629,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
             nseg_i = sec_i.nseg #number of segments that the section i contains
             midpoints_i = [(1+2*i)/(2*nseg_i) for i in range(nseg_i)] #midpoints of the different segments of section i
             for g, seg in enumerate(sec_i): #iterate over all the segments in section i
-                print(iterator,nseg_i)
+                #print(iterator,nseg_i)
                 #sec_i(midpoints_i[g]).Q1_mech * np.cos(sec_i(midpoints_i[g]).phi1_mech)
                 #if A_Qk[i][g] != A_Qk_flat[self.indexes[i][g]]:
                 #    print(A_Qk[i][g], )
@@ -627,30 +650,28 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             nseg_c = sec_c.nseg #number of segments that section c contains
                             midpoints_c = [(1+2*i)/(2*nseg_c) for i in range(nseg_c)] #midpoints of the different segments of section c
                             R_ic = sec_i(1).ri() + sec_c(1/(2*nseg_c)).ri() #resistance between segment of section i and segment of section c
-                            seg_connections[indexes[i_c[0]][-1],indexes[i_c[1]][0]] = R_ic
-                            print(f'case3: ({indexes[i_c[0]][-1]}, {indexes[i_c[1]][0]})')
+                            #print(f'case3: ({indexes[i_c[0]][-1]}, {indexes[i_c[1]][0]})')
                             #print(sec_i(midpoints_i[-1]), sec_c(midpoints_c[0]))
                             #midpoints_i[g] = midpoints_i[-1] -> these are the same in this case
                             #print(i_c[0],i_c[1])
-                            arg_i = (getattr(sec_i(midpoints_i[-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[-1]).v, Q_k_flat[indexes[i_c[0]][-1]], phi_k_flat[indexes[i_c[0]][-1]]) #(getattr(sec_i(midpoints_i[-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[-1]).v, Q_k[i_c[0]][-1], phi_k[i_c[0]][-1])
-                            arg_c = (getattr(sec_c(midpoints_c[0]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[0]).v, Q_k_flat[indexes[i_c[1]][0]], phi_k_flat[indexes[i_c[1]][0]]) #(getattr(sec_c(midpoints_c[0]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[0]).v, Q_k[i_c[1]][0], phi_k[i_c[1]][0])
+                            arg_i = (getattr(sec_i(midpoints_i[-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[-1]).v, A_Qk_flat[indexes[i_c[0]][-1]], B_Qk_flat[indexes[i_c[0]][-1]]) #(getattr(sec_i(midpoints_i[-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[-1]).v, Q_k[i_c[0]][-1], phi_k[i_c[0]][-1])
+                            arg_c = (getattr(sec_c(midpoints_c[0]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[0]).v, A_Qk_flat[indexes[i_c[1]][0]], B_Qk_flat[indexes[i_c[1]][0]]) #(getattr(sec_c(midpoints_c[0]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[0]).v, Q_k[i_c[1]][0], phi_k[i_c[1]][0])
                             #RHS_12_P2 & RHS_13_P2
                             if sec_i.cm != 0.02:
-                                h(f"RHS_13 += - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) / {R_ic}")
-                                h(f"RHS_12 += - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) / {R_ic}")
-                            else:
-                                h(f"RHS_13 += - (  {Q_k_flat[indexes[i_c[0]][-1]]} * cos({phi_k_flat[indexes[i_c[0]][-1]]}) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_A_P2 = - (  {Q_k[i_c[0]][-1]} * cos({phi_k[i_c[0]][-1]}) ) / {R_ic} / {sec_i.cm}")
-                                h(f"RHS_12 += - ( -{Q_k_flat[indexes[i_c[0]][-1]]} * sin({phi_k_flat[indexes[i_c[0]][-1]]}) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_B_P2 = - ( -{Q_k[i_c[0]][-1]} * sin({phi_k[i_c[0]][-1]}) ) / {R_ic} / {sec_i.cm}")
+                                h(f"RHS_13 += - A_1_{seci.random_mechname}{arg_i} / {R_ic}")
+                                h(f"RHS_12 += - B_1_{seci.random_mechname}{arg_i} / {R_ic}")
+                            else: #myelin sections
+                                h(f"RHS_13 += - {A_Qk_flat[indexes[i_c[0]][-1]]} / {sec_i.cm} / {R_ic}") #h(f"RHS_A_P2 = - (  {Q_k[i_c[0]][-1]} * cos({phi_k[i_c[0]][-1]}) ) / {R_ic} / {sec_i.cm}")
+                                h(f"RHS_12 += - {B_Qk_flat[indexes[i_c[0]][-1]]} / {sec_i.cm} / {R_ic}") #h(f"RHS_B_P2 = - ( -{Q_k[i_c[0]][-1]} * sin({phi_k[i_c[0]][-1]}) ) / {R_ic} / {sec_i.cm}")
                             #RHS_12_P1 & RHS_13_P1
                             if sec_c.cm != 0.02:
-                                h(f"RHS_13 += (  A_V1_{secc.random_mechname}{arg_c} * cos(phi_V1_{secc.random_mechname}{arg_c}) ) / {R_ic}")
-                                h(f"RHS_12 += ( -A_V1_{secc.random_mechname}{arg_c} * sin(phi_V1_{secc.random_mechname}{arg_c}) ) / {R_ic}")
-                            else:
-                                h(f"RHS_13 += (  {Q_k_flat[indexes[i_c[1]][0]]} * cos({phi_k_flat[indexes[i_c[1]][0]]}) ) / {R_ic} / {sec_c.cm}")
-                                h(f"RHS_12 += ( -{Q_k_flat[indexes[i_c[1]][0]]} * sin({phi_k_flat[indexes[i_c[1]][0]]}) ) / {R_ic} / {sec_c.cm}")
+                                h(f"RHS_13 += A_1_{secc.random_mechname}{arg_c} / {R_ic}")
+                                h(f"RHS_12 += B_1_{secc.random_mechname}{arg_c} / {R_ic}")
+                            else: #myelin sections
+                                h(f"RHS_13 += {A_Qk_flat[indexes[i_c[1]][0]]} / {sec_c.cm} / {R_ic}")
+                                h(f"RHS_12 += {B_Qk_flat[indexes[i_c[1]][0]]} / {sec_c.cm} / {R_ic}")
                             #RHS_A += h.RHS_A_P1 + h.RHS_A_P2
                             #RHS_B += h.RHS_B_P1 + h.RHS_B_P2
-                    #quit()
 
                 "CASE 2: segment and preceding segment of preceding section"
                 if g == 0: #if it is a segment at the beginning of the section (first section after terminal 0) -> case 2
@@ -664,26 +685,25 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             nseg_c = sec_c.nseg #number of segments in section c
                             midpoints_c = [(1+2*i)/(2*nseg_c) for i in range(nseg_c)] #midpoints of segments in section c                    
                             R_ic = sec_c(1).ri() + sec_i(1/(2*nseg_i)).ri() #resistance between segment of section c and segment of section i
-                            seg_connections[indexes[i_c[1]][-1],indexes[i_c[0]][0]] = R_ic
-                            print(f'case2: ({indexes[i_c[1]][-1]}, {indexes[i_c[0]][0]})')
+                            #print(f'case2: ({indexes[i_c[1]][-1]}, {indexes[i_c[0]][0]})')
                             #print(sec_c(midpoints_c[-1]), sec_i(midpoints_i[0]))
                             #midpoints_i[g] = midpoints_i[0] 
-                            arg_i = (getattr(sec_i(midpoints_i[0]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[0]).v, Q_k_flat[indexes[i_c[0]][0]], phi_k_flat[indexes[i_c[0]][0]])#(getattr(sec_i(midpoints_i[0]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[0]).v, Q_k[i_c[0]][0], phi_k[i_c[0]][0])
-                            arg_c = (getattr(sec_c(midpoints_c[-1]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[-1]).v, Q_k_flat[indexes[i_c[1]][-1]], phi_k_flat[indexes[i_c[1]][-1]])#(getattr(sec_c(midpoints_c[-1]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[-1]).v, Q_k[i_c[1]][-1], phi_k[i_c[1]][-1])
+                            arg_i = (getattr(sec_i(midpoints_i[0]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[0]).v, A_Qk_flat[indexes[i_c[0]][0]], B_Qk_flat[indexes[i_c[0]][0]])#(getattr(sec_i(midpoints_i[0]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[0]).v, Q_k[i_c[0]][0], phi_k[i_c[0]][0])
+                            arg_c = (getattr(sec_c(midpoints_c[-1]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[-1]).v, A_Qk_flat[indexes[i_c[1]][-1]], B_Qk_flat[indexes[i_c[1]][-1]])#(getattr(sec_c(midpoints_c[-1]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[-1]).v, Q_k[i_c[1]][-1], phi_k[i_c[1]][-1])
                             #RHS_12_P2 & RHS_13_P2
                             if sec_i.cm != 0.02:
-                                h(f"RHS_13 += - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) / {R_ic}")
-                                h(f"RHS_12 += - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) / {R_ic}")
-                            else:
-                                h(f"RHS_13 += - (  {Q_k_flat[indexes[i_c[0]][0]]} * cos({phi_k_flat[indexes[i_c[0]][0]]}) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_A_P2 = - (  {Q_k[i_c[0]][0]} * cos({phi_k[i_c[0]][0]}) ) / {R_ic} / {sec_i.cm}")
-                                h(f"RHS_12 += - ( -{Q_k_flat[indexes[i_c[0]][0]]} * sin({phi_k_flat[indexes[i_c[0]][0]]}) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_B_P2 = - ( -{Q_k[i_c[0]][0]} * sin({phi_k[i_c[0]][0]}) ) / {R_ic} / {sec_i.cm}")
+                                h(f"RHS_13 += - A_1_{seci.random_mechname}{arg_i} / {R_ic}")
+                                h(f"RHS_12 += - B_1_{seci.random_mechname}{arg_i} / {R_ic}")
+                            else: #myelin sections
+                                h(f"RHS_13 += - {A_Qk_flat[indexes[i_c[0]][0]]} / {sec_i.cm} / {R_ic}") #h(f"RHS_A_P2 = - (  {Q_k[i_c[0]][0]} * cos({phi_k[i_c[0]][0]}) ) / {R_ic} / {sec_i.cm}")
+                                h(f"RHS_12 += - {B_Qk_flat[indexes[i_c[0]][0]]} / {sec_i.cm} / {R_ic}") #h(f"RHS_B_P2 = - ( -{Q_k[i_c[0]][0]} * sin({phi_k[i_c[0]][0]}) ) / {R_ic} / {sec_i.cm}")
                             #RHS_A_P1 & RHS_B_P1
                             if sec_c.cm != 0.02:
-                                h(f"RHS_13 += (  A_V1_{secc.random_mechname}{arg_c} * cos(phi_V1_{secc.random_mechname}{arg_c}) ) / {R_ic}")
-                                h(f"RHS_12 += ( -A_V1_{secc.random_mechname}{arg_c} * sin(phi_V1_{secc.random_mechname}{arg_c}) ) / {R_ic}")
-                            else:
-                                h(f"RHS_13 += (  {Q_k_flat[indexes[i_c[1]][-1]]} * cos({phi_k_flat[indexes[i_c[1]][-1]]}) ) / {R_ic} / {sec_c.cm}") #h(f"RHS_A_P1 = - (  {Q_k[i_c[1]][-1]} * cos({phi_k[i_c[1]][-1]}) ) / {R_ic} / {sec_c.cm}")
-                                h(f"RHS_12 += ( -{Q_k_flat[indexes[i_c[1]][-1]]} * sin({phi_k_flat[indexes[i_c[1]][-1]]}) ) / {R_ic} / {sec_c.cm}") #h(f"RHS_B_P1 = - ( -{Q_k[i_c[1]][-1]} * sin({phi_k[i_c[1]][-1]}) ) / {R_ic} / {sec_c.cm}")
+                                h(f"RHS_13 += A_1_{secc.random_mechname}{arg_c} / {R_ic}")
+                                h(f"RHS_12 += B_1_{secc.random_mechname}{arg_c} / {R_ic}")
+                            else: #myelin sections
+                                h(f"RHS_13 += {A_Qk_flat[indexes[i_c[1]][-1]]} / {sec_c.cm} / {R_ic}") #h(f"RHS_A_P1 = - (  {Q_k[i_c[1]][-1]} * cos({phi_k[i_c[1]][-1]}) ) / {R_ic} / {sec_c.cm}")
+                                h(f"RHS_12 += {B_Qk_flat[indexes[i_c[1]][-1]]} / {sec_c.cm} / {R_ic}") #h(f"RHS_B_P1 = - ( -{Q_k[i_c[1]][-1]} * sin({phi_k[i_c[1]][-1]}) ) / {R_ic} / {sec_c.cm}")
                             #RHS_A += h.RHS_A_P1 + h.RHS_A_P2
                             #RHS_B += h.RHS_B_P1 + h.RHS_B_P2
 
@@ -692,37 +712,35 @@ class NeuronModel(metaclass=abc.ABCMeta):
                     "segment and preceding segment of the same section"
                     if g != 0: #not the first segment so we look at connection between the segment and the one before it
                         R_ic = sec_i(midpoints_i[g]).ri() #resistance between segment and the previous one (the one before it)
-                        seg_connections[iterator-1,iterator] = R_ic
-                        print(f'case1.2: ({iterator-1}, {iterator})')
+                        #print(f'case1.2: ({iterator-1}, {iterator})')
                         #print(sec_i(midpoints_i[g-1]), sec_i(midpoints_i[g]))
-                        arg_i =   (getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k_flat[indexes[i][g  ]], phi_k_flat[indexes[i][g  ]]) #(getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k[i][g  ], phi_k[i][g  ])
-                        arg_im1 = (getattr(sec_i(midpoints_i[g-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g-1]).v, Q_k_flat[indexes[i][g-1]], phi_k_flat[indexes[i][g-1]]) #(getattr(sec_i(midpoints_i[g-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g-1]).v, Q_k[i][g-1], phi_k[i][g-1])
+                        arg_i =   (getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, A_Qk_flat[indexes[i][g  ]], B_Qk_flat[indexes[i][g  ]]) #(getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k[i][g  ], phi_k[i][g  ])
+                        arg_im1 = (getattr(sec_i(midpoints_i[g-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g-1]).v, A_Qk_flat[indexes[i][g-1]], B_Qk_flat[indexes[i][g-1]]) #(getattr(sec_i(midpoints_i[g-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g-1]).v, Q_k[i][g-1], phi_k[i][g-1])
                         if sec_i.cm != 0.02:
                             #( ( sec_i(midpoints_i[g-1]).V1_mech*np.cos(sec_i(midpoints_i[g-1]).psi1_mech)) - ( sec_i(midpoints_i[g]).V1_mech*np.cos(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_13 += ( (  A_V1_{seci.random_mechname}{arg_im1} * cos(phi_V1_{seci.random_mechname}{arg_im1}) ) - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
+                            h(f"RHS_13 += (A_1_{seci.random_mechname}{arg_im1}) - (A_1_{seci.random_mechname}{arg_i}) / {R_ic}")
                             #( (-sec_i(midpoints_i[g-1]).V1_mech*np.sin(sec_i(midpoints_i[g-1]).psi1_mech)) - (-sec_i(midpoints_i[g]).V1_mech*np.sin(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_12 += ( ( -A_V1_{seci.random_mechname}{arg_im1} * sin(phi_V1_{seci.random_mechname}{arg_im1}) ) - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
-                        else:
-                            h(f"RHS_13 += ( (  {Q_k_flat[indexes[i][g-1]]} * cos({phi_k_flat[indexes[i][g-1]]}) ) - (  {Q_k_flat[indexes[i][g]]} * cos({phi_k_flat[indexes[i][g]]}) ) ) / {R_ic} / {sec_i.cm}")
-                            h(f"RHS_12 += ( ( -{Q_k_flat[indexes[i][g-1]]} * sin({phi_k_flat[indexes[i][g-1]]}) ) - ( -{Q_k_flat[indexes[i][g]]} * sin({phi_k_flat[indexes[i][g]]}) ) ) / {R_ic} / {sec_i.cm}")
+                            h(f"RHS_12 += (B_1_{seci.random_mechname}{arg_im1}) - (B_1_{seci.random_mechname}{arg_i}) / {R_ic}")
+                        else: #myelin sections
+                            h(f"RHS_13 += ({A_Qk_flat[indexes[i][g-1]]}) - ({A_Qk_flat[indexes[i][g]]}) / {sec_i.cm} / {R_ic}")
+                            h(f"RHS_12 += ({B_Qk_flat[indexes[i][g-1]]}) - ({B_Qk_flat[indexes[i][g]]}) / {sec_i.cm} / {R_ic}")
                         #RHS_A += h.RHS_A
                         #RHS_B += h.RHS_B
                     "segment and subsequent segment of the same section"
                     if g != nseg_i - 1: #not the last segment so we look at connection between segment and the one after it
                         R_ic = sec_i(midpoints_i[g+1]).ri() #resistance between segment and the next one (the one after it)
-                        seg_connections[iterator,iterator+1] = R_ic
-                        print(f'case1.3: ({iterator}, {iterator+1})')
+                        #print(f'case1.3: ({iterator}, {iterator+1})')
                         #print(sec_i(midpoints_i[g]), sec_i(midpoints_i[g+1]))
-                        arg_i =   (getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k_flat[indexes[i][g  ]], phi_k_flat[indexes[i][g  ]]) #(getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k[i][g  ], phi_k[i][g  ])
-                        arg_ip1 = (getattr(sec_i(midpoints_i[g+1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g+1]).v, Q_k_flat[indexes[i][g+1]], phi_k_flat[indexes[i][g+1]]) #(getattr(sec_i(midpoints_i[g+1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g+1]).v, Q_k[i][g+1], phi_k[i][g+1])
+                        arg_i =   (getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, A_Qk_flat[indexes[i][g  ]], B_Qk_flat[indexes[i][g  ]]) #(getattr(sec_i(midpoints_i[g  ]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g  ]).v, Q_k[i][g  ], phi_k[i][g  ])
+                        arg_ip1 = (getattr(sec_i(midpoints_i[g+1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g+1]).v, A_Qk_flat[indexes[i][g+1]], B_Qk_flat[indexes[i][g+1]]) #(getattr(sec_i(midpoints_i[g+1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g+1]).v, Q_k[i][g+1], phi_k[i][g+1])
                         if sec_i.cm != 0.02:
                             #( ( sec_i(midpoints_i[g+1]).V1_mech*np.cos(sec_i(midpoints_i[g+1]).psi1_mech)) - ( sec_i(midpoints_i[g]).V1_mech*np.cos(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_13 += ( (  A_V1_{seci.random_mechname}{arg_ip1} * cos(phi_V1_{seci.random_mechname}{arg_ip1}) ) - (  A_V1_{seci.random_mechname}{arg_i} * cos(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
+                            h(f"RHS_13 += (A_1_{seci.random_mechname}{arg_ip1} - A_1_{seci.random_mechname}{arg_i}) / {R_ic}")
                             #( (-sec_i(midpoints_i[g+1]).V1_mech*np.sin(sec_i(midpoints_i[g+1]).psi1_mech)) - (-sec_i(midpoints_i[g]).V1_mech*np.sin(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_12 += ( ( -A_V1_{seci.random_mechname}{arg_ip1} * sin(phi_V1_{seci.random_mechname}{arg_ip1}) ) - ( -A_V1_{seci.random_mechname}{arg_i} * sin(phi_V1_{seci.random_mechname}{arg_i}) ) ) / {R_ic}")
-                        else:
-                            h(f"RHS_13 += ( (  {Q_k_flat[indexes[i][g+1]]} * cos({phi_k_flat[indexes[i][g+1]]}) ) - (  {Q_k_flat[indexes[i][g]]} * cos({phi_k_flat[indexes[i][g]]}) ) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_A = ( (  {Q_k[i][g+1]} * cos({phi_k[i][g+1]}) ) - (  {Q_k[i][g]} * cos({phi_k[i][g]}) ) ) / {R_ic} / {sec_i.cm}")
-                            h(f"RHS_12 += ( ( -{Q_k_flat[indexes[i][g+1]]} * sin({phi_k_flat[indexes[i][g+1]]}) ) - ( -{Q_k_flat[indexes[i][g]]} * sin({phi_k_flat[indexes[i][g]]}) ) ) / {R_ic} / {sec_i.cm}") #h(f"RHS_B = ( ( -{Q_k[i][g+1]} * sin({phi_k[i][g+1]}) ) - ( -{Q_k[i][g]} * sin({phi_k[i][g]}) ) ) / {R_ic} / {sec_i.cm}")
+                            h(f"RHS_12 += (B_1_{seci.random_mechname}{arg_ip1} - B_1_{seci.random_mechname}{arg_i}) / {R_ic}")
+                        else: #myelin sections
+                            h(f"RHS_13 += ({A_Qk_flat[indexes[i][g+1]]} - {A_Qk_flat[indexes[i][g]]}) / {sec_i.cm} / {R_ic}") #h(f"RHS_A = ( (  {Q_k[i][g+1]} * cos({phi_k[i][g+1]}) ) - (  {Q_k[i][g]} * cos({phi_k[i][g]}) ) ) / {R_ic} / {sec_i.cm}")
+                            h(f"RHS_12 += ({B_Qk_flat[indexes[i][g+1]]} - {B_Qk_flat[indexes[i][g]]}) / {sec_i.cm} / {R_ic}") #h(f"RHS_B = ( ( -{Q_k[i][g+1]} * sin({phi_k[i][g+1]}) ) - ( -{Q_k[i][g]} * sin({phi_k[i][g]}) ) ) / {R_ic} / {sec_i.cm}")
                         #RHS_A += h.RHS_A
                         #RHS_B += h.RHS_B
                 eq_12 = LHS_12-h.RHS_12
@@ -737,67 +755,69 @@ class NeuronModel(metaclass=abc.ABCMeta):
         #print(np.linalg.norm(res_12) + np.linalg.norm(res_13)) 
         if DEBUG_OV:
             end_time = time.perf_counter()
-            print(f'iteration time: {(end_time-start_time)//60} min , {(end_time-start_time)%60} sec')
-        print(seg_connections)
-        print(sum(np.sum((seg_connections>0)*1,axis=1)))
+            #print(f'iteration time: {(end_time-start_time)//60} min , {(end_time-start_time)%60} sec')
         return np.linalg.norm(res_12) + np.linalg.norm(res_13) #return the norm of the vector with the residuals of eq. 12 and eq. 13
 
 
-    def update_overtones(self, solution, k):
+    def solve_overtones(self,ABovseg):
+        """ equation that returns LHS-RHS of eq. (12) and eq. (13) for ALL overtones
+            :ABovseg: all the input data stuctured in a way for Jacobian simplification (first AB, then ov, then segments)"""
+        A = ABovseg[::2]
+        B = ABovseg[1::2]
+        residual = 0 #the residual of all overtone functions
+        for nov in range(OVERTONES):
+            Ak = A[nov::OVERTONES] #list containing the A's for a specific overtone for all segments
+            Bk = B[nov::OVERTONES] #start with the desired overtone an take steps in the size of the number of overtones to take the same overtone every time
+            #inp = np.concatenate((Ak,Bk))
+            residual += self.solve_overtone(Ak,Bk,nov)
+        return residual
+
+    def update_overtones(self, solution):
         """ updating q_k and f_k: this is done before h.fadvance() as update() is also done before anything else in the NMODL file
-            :solution: the solved overtones
-            :k: which overtone"""
+            :solution: the solved overtones"""
 
-        Q = solution[:len(solution)//2]
-        phi = solution[len(solution)//2:]
-        assert len(Q) == len(phi), 'Q and phi have different length' #length = # of segments
-        assert len(Q) == len(self.Q[k]), 'Q and Q[k] have different length'
-        self.Q[k] = Q
-        self.phi[k] = phi
-        iterator = 0
+        #AB_matrix = np.zeros((2,self.nov,self.nseg))
+        ABovseg = solution
+        self.AB = ABovseg.copy()
+        A = ABovseg[::2]
+        B = ABovseg[1::2]
+        for nov in range(OVERTONES):
+            Ak = A[nov::OVERTONES] #list containing the A's for a specific overtone for all segments
+            Bk = B[nov::OVERTONES] #start with the desired overtone an take steps in the size of the number of overtones to take the same overtone every time
 
-        for sec in self.seclist:
-            for seg in sec.nrnsec:
-                for mech in sec.relevant_mechs:
-                    setattr(seg,f'q1_{mech}',Q[iterator])
-                    setattr(seg,f'f1_{mech}',phi[iterator])
-                iterator += 1
+            iterator = 0
+            for sec in self.seclist:
+                for seg in sec.nrnsec:
+                    for mech in sec.relevant_mechs:
+                        setattr(seg,f'a1_{mech}',Ak[iterator])
+                        setattr(seg,f'b1_{mech}',Bk[iterator])
+                    iterator += 1
 
 
     def advance(self, update_ov=0):
         ''' Advance simulation onto the next time step. '''
 
         if update_ov:
-            for k in range(OVERTONES):
-                Q_phi = np.append(self.Q[k],self.phi[k])
-                bounds_Qf = [(0, 0.001) for e in self.Q[k]] + [(0, 2*np.pi) for e in self.phi[k]]
 
-                if DEBUG_OV:
-                    #print(bounds_Qf)
-                    for i in range(1):
-                        a = self.solve_overtones(Q_phi,k)
-                    print(a)
-                    print('------------------')
-                    quit()
-                    start_time = time.time()
+            #jac = self.calc_jac()
+            A_bounds = (-0.000606762745, 0.000309016993)
+            B_bounds = (-0.00029388, 0.00095105)
+            bounds_AB = [x for _ in self.AB[::2] for x in (A_bounds, B_bounds)]
 
-                result = minimize(self.solve_overtones,Q_phi,args=k, bounds = bounds_Qf)
+            result = minimize(self.solve_overtones, self.AB, jac=self.calc_jac, bounds = bounds_AB)
+            solution = result.x
+            #solution = Q_phi #for debugging
+            #print(len(solution))
 
-                if DEBUG_OV:
-                    dt = time.time()-start_time
-                    print(f"{dt//60} minutes {dt%60} seconds")
+            if DEBUG_OV:
+                print(f'solution = {solution}')
+                #quit()
 
-                solution = result.x
-                #solution = Q_phi #for debugging
-                #print(len(solution))
+            self.update_overtones(solution)
 
-                if DEBUG_OV:
-                    print(f'solution = {solution}')
-
-                self.update_overtones(solution,k)
-                
-                if DEBUG_OV:
-                    quit()
+            # if DEBUG_OV:
+            #     quit()
+            
 
         #update the LUT according to the new overtone values -> not necessary as LUT can be more than 2-dimensional
         #self.setFuncTables()
@@ -862,10 +882,10 @@ class NeuronModel(metaclass=abc.ABCMeta):
         overtones = []
         for ov in range(OVERTONES):
             #print(f'pylkp.refs: {pylkp.refs}')
-            overtones.append(len(pylkp.refs[f'AQ{ov+1}']))
-            overtones.append(h.Vector(pylkp.refs[f'AQ{ov+1}'])._ref_x[0])
-            overtones.append(len(pylkp.refs[f'phiQ{ov+1}']))
-            overtones.append(h.Vector(pylkp.refs[f'phiQ{ov+1}'])._ref_x[0])
+            overtones.append(len(pylkp.refs[f'A_{ov+1}'])) #overtones.append(len(pylkp.refs[f'AQ{ov+1}']))
+            overtones.append(h.Vector(pylkp.refs[f'A_{ov+1}'])._ref_x[0]) #overtones.append(h.Vector(pylkp.refs[f'AQ{ov+1}'])._ref_x[0])
+            overtones.append(len(pylkp.refs[f'B_{ov+1}'])) #overtones.append(len(pylkp.refs[f'phiQ{ov+1}']))
+            overtones.append(h.Vector(pylkp.refs[f'B_{ov+1}'])._ref_x[0]) #overtones.append(h.Vector(pylkp.refs[f'phiQ{ov+1}'])._ref_x[0])
 
         # Convert lookup tables to hoc matrices
         local_S_TO_MS = 1 if ABERRA else S_TO_MS # if ABERRA: no conversion needed
@@ -873,12 +893,12 @@ class NeuronModel(metaclass=abc.ABCMeta):
         if Cm0_var2: #and also Cm0_var? NO
             matrix_dict['V2'] = pylkp['V2'] #mV
         for ov in range(OVERTONES):
-            amp, ph = f'A_V{ov+1}', f'phi_V{ov+1}'
-            matrix_dict[amp] = pylkp[amp]
-            matrix_dict[ph] = pylkp[ph]
+            A, B = f'A_{ov+1}', f'B_{ov+1}' #amp, ph = f'A_V{ov+1}', f'phi_V{ov+1}'
+            matrix_dict[A] = pylkp[A] #matrix_dict[amp] = pylkp[amp]
+            matrix_dict[B] = pylkp[B] #matrix_dict[ph] = pylkp[ph]
             if Cm0_var2:
-                matrix_dict[amp+'2'] = pylkp[amp+'2']
-                matrix_dict[ph+'2'] = pylkp[ph+'2']
+                matrix_dict[A+'2'] = pylkp[A+'2'] #matrix_dict[amp+'2'] = pylkp[amp+'2']
+                matrix_dict[B+'2'] = pylkp[B+'2'] #matrix_dict[ph+'2'] = pylkp[ph+'2']
         for ratex in self.pneuron.alphax_list.union(self.pneuron.betax_list):
             matrix_dict[ratex] = pylkp[ratex] / local_S_TO_MS
             if Cm0_var2:
@@ -1006,7 +1026,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
         #(different compartment types contain different mech & cells don't have all the available mechs)
         #print(f'setFuncTable mechname:{mechname}, fname: {fname}')
         if 'real' in mechname and 'neuron' in mechname: #also "if ABERRA:" can be used #BREAKPOINT
-            if fname == 'V' or fname == 'V2' or 'A_V' in fname or 'phi_V' in fname:
+            if fname == 'V' or fname == 'V2' or 'A_V' in fname or 'phi_V' in fname or 'A_' in fname or 'B_' in fname: #V0, V0_2, Vk, phik, Ak, Bk
                 for mech in mech_mapping.values():
                     try:
                         if Cm0:
