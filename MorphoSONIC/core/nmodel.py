@@ -419,24 +419,26 @@ class NeuronModel(metaclass=abc.ABCMeta):
         h.t = 0
         if OVERTONES:
             self.init_overtones()
-        #quit()
         t_next, t_step = 1, 1 #1, 1 #0.0010, 0.0010
-        T_up_next, T_up_step = 0.05, 0.05 #next update moment and update step of overtones
-        print(f'tstop = {tstop}') #LOG OUTPUT
-        test_it = 0
+        T_up_next, T_up_step = 1, 1 #0.05, 0.05 #next update moment and update step of overtones
+        print(f'tstop = {tstop} ms') #LOG OUTPUT
+        print(F"T_up = {T_up_step} ms")
         while h.t < tstop: #BREAKPOINT
-            #time.sleep(5)
-            print(f'\n\n new timestep: {h.t}\n\n')
+            #print(f'\n\n new timestep: {h.t}\n\n')
+
+            if DEBUG_OV:
+                for sec in self.seclist:
+                    nrnsec = sec.nrnsec
+                    print(nrnsec.psection()["density_mechs"].keys())
+                    print(f"v = {nrnsec.v}, Vm: {nrnsec.Vm_pas_eff}, A_t: {nrnsec.A_t_pas_eff}, a1: {nrnsec.a1_pas_eff}, b1: {nrnsec.b1_pas_eff}")
+                    break
+
             if h.t > t_next:
                 print(f'h.t = {h.t}') #LOG OUTPUT
                 t_next += t_step
-            # if test_it == 2:
-            #     pass
-            #     quit()
-            # test_it += 1
             if OVERTONES:
                 if h.t > T_up_next:
-                    print('overtones update')
+                    #print('overtones update')
                     T_up_next += T_up_step
                     self.advance(1)
                 else:
@@ -582,13 +584,13 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             b = Bk[iterator//mult] #b = getattr(seg,f'b{i+1}_{sec.random_mechname}')
                             xi += [a, b]
                         if seg.cm == 2:
-                            block[ir,ic] = interpn(refs_ext,Jac[column],xi)[0] #interpolate the Jacobian for the point where the segment is currently at
+                            block[ir,ic] = interpn(refs_ext,Jac[column],xi)[0] #,fill_value=None,bounds_error=0)[0] #interpolate the Jacobian for the point where the segment is currently at
                         elif seg.cm == 0.02: #in the case of myelin, the derivative is 1/cm if X=Y in dX/dY, otherwise it is 0
                             split4 = column.split('_') #the string should be splitted in 4 strings
                             XY = (split4[0].replace('V','Q') == split4[2])
                             block[ir,ic] = 1/seg.cm if XY else 0
                         else:
-                            block[ir,ic] = interpn(refs,Jac[column],xi)[0] 
+                            block[ir,ic] = interpn(refs,Jac[column],xi)[0] #,fill_value=None,bounds_error=0) -> to extrapolate #[0] is sliced because it returns an array with a single value -> take that single value
                 self.LUTseci[iterator:iterator+mult] = np.tile(block,self.nseg) * self.LUTseci[iterator:iterator+mult] #multiply the block by the repeated identity matrix
                 self.LUTsecc[iterator:iterator+mult] = np.tile(block,self.nseg) * self.LUTsecc[iterator:iterator+mult] #multiply the block by the repeated connection matrix
                 iterator += mult
@@ -658,15 +660,15 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             arg_c = (getattr(sec_c(midpoints_c[0]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[0]).v, A_Qk_flat[indexes[i_c[1]][0]], B_Qk_flat[indexes[i_c[1]][0]]) #(getattr(sec_c(midpoints_c[0]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[0]).v, Q_k[i_c[1]][0], phi_k[i_c[1]][0])
                             #RHS_12_P2 & RHS_13_P2
                             if sec_i.cm != 0.02:
-                                h(f"RHS_13 += - A_1_{seci.random_mechname}{arg_i} / {R_ic}")
-                                h(f"RHS_12 += - B_1_{seci.random_mechname}{arg_i} / {R_ic}")
+                                h(f"RHS_13 += - fA_1_{seci.random_mechname}() / {R_ic}")
+                                h(f"RHS_12 += - fB_1_{seci.random_mechname}() / {R_ic}")
                             else: #myelin sections
                                 h(f"RHS_13 += - {A_Qk_flat[indexes[i_c[0]][-1]]} / {sec_i.cm} / {R_ic}") #h(f"RHS_A_P2 = - (  {Q_k[i_c[0]][-1]} * cos({phi_k[i_c[0]][-1]}) ) / {R_ic} / {sec_i.cm}")
                                 h(f"RHS_12 += - {B_Qk_flat[indexes[i_c[0]][-1]]} / {sec_i.cm} / {R_ic}") #h(f"RHS_B_P2 = - ( -{Q_k[i_c[0]][-1]} * sin({phi_k[i_c[0]][-1]}) ) / {R_ic} / {sec_i.cm}")
                             #RHS_12_P1 & RHS_13_P1
                             if sec_c.cm != 0.02:
-                                h(f"RHS_13 += A_1_{secc.random_mechname}{arg_c} / {R_ic}")
-                                h(f"RHS_12 += B_1_{secc.random_mechname}{arg_c} / {R_ic}")
+                                h(f"RHS_13 += fA_1_{secc.random_mechname}() / {R_ic}")
+                                h(f"RHS_12 += fB_1_{secc.random_mechname}() / {R_ic}")
                             else: #myelin sections
                                 h(f"RHS_13 += {A_Qk_flat[indexes[i_c[1]][0]]} / {sec_c.cm} / {R_ic}")
                                 h(f"RHS_12 += {B_Qk_flat[indexes[i_c[1]][0]]} / {sec_c.cm} / {R_ic}")
@@ -692,15 +694,15 @@ class NeuronModel(metaclass=abc.ABCMeta):
                             arg_c = (getattr(sec_c(midpoints_c[-1]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[-1]).v, A_Qk_flat[indexes[i_c[1]][-1]], B_Qk_flat[indexes[i_c[1]][-1]])#(getattr(sec_c(midpoints_c[-1]),f'A_t_{secc.random_mechname}'), sec_c(midpoints_c[-1]).v, Q_k[i_c[1]][-1], phi_k[i_c[1]][-1])
                             #RHS_12_P2 & RHS_13_P2
                             if sec_i.cm != 0.02:
-                                h(f"RHS_13 += - A_1_{seci.random_mechname}{arg_i} / {R_ic}")
-                                h(f"RHS_12 += - B_1_{seci.random_mechname}{arg_i} / {R_ic}")
+                                h(f"RHS_13 += - fA_1_{seci.random_mechname}() / {R_ic}")
+                                h(f"RHS_12 += - fB_1_{seci.random_mechname}() / {R_ic}")
                             else: #myelin sections
                                 h(f"RHS_13 += - {A_Qk_flat[indexes[i_c[0]][0]]} / {sec_i.cm} / {R_ic}") #h(f"RHS_A_P2 = - (  {Q_k[i_c[0]][0]} * cos({phi_k[i_c[0]][0]}) ) / {R_ic} / {sec_i.cm}")
                                 h(f"RHS_12 += - {B_Qk_flat[indexes[i_c[0]][0]]} / {sec_i.cm} / {R_ic}") #h(f"RHS_B_P2 = - ( -{Q_k[i_c[0]][0]} * sin({phi_k[i_c[0]][0]}) ) / {R_ic} / {sec_i.cm}")
                             #RHS_A_P1 & RHS_B_P1
                             if sec_c.cm != 0.02:
-                                h(f"RHS_13 += A_1_{secc.random_mechname}{arg_c} / {R_ic}")
-                                h(f"RHS_12 += B_1_{secc.random_mechname}{arg_c} / {R_ic}")
+                                h(f"RHS_13 += fA_1_{secc.random_mechname}() / {R_ic}")
+                                h(f"RHS_12 += fB_1_{secc.random_mechname}() / {R_ic}")
                             else: #myelin sections
                                 h(f"RHS_13 += {A_Qk_flat[indexes[i_c[1]][-1]]} / {sec_c.cm} / {R_ic}") #h(f"RHS_A_P1 = - (  {Q_k[i_c[1]][-1]} * cos({phi_k[i_c[1]][-1]}) ) / {R_ic} / {sec_c.cm}")
                                 h(f"RHS_12 += {B_Qk_flat[indexes[i_c[1]][-1]]} / {sec_c.cm} / {R_ic}") #h(f"RHS_B_P1 = - ( -{Q_k[i_c[1]][-1]} * sin({phi_k[i_c[1]][-1]}) ) / {R_ic} / {sec_c.cm}")
@@ -718,9 +720,9 @@ class NeuronModel(metaclass=abc.ABCMeta):
                         arg_im1 = (getattr(sec_i(midpoints_i[g-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g-1]).v, A_Qk_flat[indexes[i][g-1]], B_Qk_flat[indexes[i][g-1]]) #(getattr(sec_i(midpoints_i[g-1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g-1]).v, Q_k[i][g-1], phi_k[i][g-1])
                         if sec_i.cm != 0.02:
                             #( ( sec_i(midpoints_i[g-1]).V1_mech*np.cos(sec_i(midpoints_i[g-1]).psi1_mech)) - ( sec_i(midpoints_i[g]).V1_mech*np.cos(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_13 += (A_1_{seci.random_mechname}{arg_im1}) - (A_1_{seci.random_mechname}{arg_i}) / {R_ic}")
+                            h(f"RHS_13 += (fA_1_{seci.random_mechname}()) - (fA_1_{seci.random_mechname}()) / {R_ic}")
                             #( (-sec_i(midpoints_i[g-1]).V1_mech*np.sin(sec_i(midpoints_i[g-1]).psi1_mech)) - (-sec_i(midpoints_i[g]).V1_mech*np.sin(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_12 += (B_1_{seci.random_mechname}{arg_im1}) - (B_1_{seci.random_mechname}{arg_i}) / {R_ic}")
+                            h(f"RHS_12 += (fB_1_{seci.random_mechname}()) - (fB_1_{seci.random_mechname}()) / {R_ic}")
                         else: #myelin sections
                             h(f"RHS_13 += ({A_Qk_flat[indexes[i][g-1]]}) - ({A_Qk_flat[indexes[i][g]]}) / {sec_i.cm} / {R_ic}")
                             h(f"RHS_12 += ({B_Qk_flat[indexes[i][g-1]]}) - ({B_Qk_flat[indexes[i][g]]}) / {sec_i.cm} / {R_ic}")
@@ -735,16 +737,16 @@ class NeuronModel(metaclass=abc.ABCMeta):
                         arg_ip1 = (getattr(sec_i(midpoints_i[g+1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g+1]).v, A_Qk_flat[indexes[i][g+1]], B_Qk_flat[indexes[i][g+1]]) #(getattr(sec_i(midpoints_i[g+1]),f'A_t_{seci.random_mechname}'), sec_i(midpoints_i[g+1]).v, Q_k[i][g+1], phi_k[i][g+1])
                         if sec_i.cm != 0.02:
                             #( ( sec_i(midpoints_i[g+1]).V1_mech*np.cos(sec_i(midpoints_i[g+1]).psi1_mech)) - ( sec_i(midpoints_i[g]).V1_mech*np.cos(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_13 += (A_1_{seci.random_mechname}{arg_ip1} - A_1_{seci.random_mechname}{arg_i}) / {R_ic}")
+                            h(f"RHS_13 += (fA_1_{seci.random_mechname}() - fA_1_{seci.random_mechname}()) / {R_ic}")
                             #( (-sec_i(midpoints_i[g+1]).V1_mech*np.sin(sec_i(midpoints_i[g+1]).psi1_mech)) - (-sec_i(midpoints_i[g]).V1_mech*np.sin(sec_i(midpoints_i[g]).psi1_mech) ) ) / R_ic
-                            h(f"RHS_12 += (B_1_{seci.random_mechname}{arg_ip1} - B_1_{seci.random_mechname}{arg_i}) / {R_ic}")
+                            h(f"RHS_12 += (fB_1_{seci.random_mechname}() - fB_1_{seci.random_mechname}()) / {R_ic}")
                         else: #myelin sections
                             h(f"RHS_13 += ({A_Qk_flat[indexes[i][g+1]]} - {A_Qk_flat[indexes[i][g]]}) / {sec_i.cm} / {R_ic}") #h(f"RHS_A = ( (  {Q_k[i][g+1]} * cos({phi_k[i][g+1]}) ) - (  {Q_k[i][g]} * cos({phi_k[i][g]}) ) ) / {R_ic} / {sec_i.cm}")
                             h(f"RHS_12 += ({B_Qk_flat[indexes[i][g+1]]} - {B_Qk_flat[indexes[i][g]]}) / {sec_i.cm} / {R_ic}") #h(f"RHS_B = ( ( -{Q_k[i][g+1]} * sin({phi_k[i][g+1]}) ) - ( -{Q_k[i][g]} * sin({phi_k[i][g]}) ) ) / {R_ic} / {sec_i.cm}")
                         #RHS_A += h.RHS_A
                         #RHS_B += h.RHS_B
                 eq_12 = LHS_12-h.RHS_12
-                eq_13 = LHS_12-h.RHS_12
+                eq_13 = LHS_13-h.RHS_13
                 res_12[iterator] = eq_12
                 res_13[iterator] = eq_13
                 iterator += 1
@@ -755,7 +757,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
         #print(np.linalg.norm(res_12) + np.linalg.norm(res_13)) 
         if DEBUG_OV:
             end_time = time.perf_counter()
-            #print(f'iteration time: {(end_time-start_time)//60} min , {(end_time-start_time)%60} sec')
+            print(f'iteration time: {(end_time-start_time)//60} min , {(end_time-start_time)%60} sec')
         return np.linalg.norm(res_12) + np.linalg.norm(res_13) #return the norm of the vector with the residuals of eq. 12 and eq. 13
 
 
@@ -810,17 +812,9 @@ class NeuronModel(metaclass=abc.ABCMeta):
             #print(len(solution))
 
             if DEBUG_OV:
-                print(f'solution = {solution}')
-                #quit()
+                print(f'solution range : [{min(solution)}, {max(solution)}]')
 
             self.update_overtones(solution)
-
-            # if DEBUG_OV:
-            #     quit()
-            
-
-        #update the LUT according to the new overtone values -> not necessary as LUT can be more than 2-dimensional
-        #self.setFuncTables()
 
         h.fadvance()
 
@@ -843,6 +837,83 @@ class NeuronModel(metaclass=abc.ABCMeta):
         # cvode.print_event_queue()
         self.integrateUntil(pp.tstop * S_TO_MS)
         return 0
+
+    def psection(self, sec, lkp=0):
+        "stolen from C:\nrn\lib\python\neuron\psection.py"
+
+        if lkp:
+            arrays = {'A_arr': self.Aref._ref_x[0], 'Q_arr': self.Qref._ref_x[0], 'Q_arr2': self.Qextref._ref_x[0]}
+            sizes = {'A_s': self.Aref.size(), 'Q_s': self.Qref.size(),'Q_s2': self.Qextref.size()}
+            for i in range(len(self.overtones)//4):
+                sizes[f'A{i+1}_s'] = self.overtones[4*i]
+                arrays[f'A{i+1}_arr'] = self.overtones[4*i+1]._ref_x[0]
+                sizes[f'B{i+1}_s'] = self.overtones[4*i+2]
+                arrays[f'B{i+1}_arr'] = self.overtones[4*i+3]._ref_x[0]
+            #print(sizes); print(arrays); quit()
+        mname = h.ref("")
+        center_seg_dir = dir(sec(0.5))
+        mechs_present = []
+
+        # membrane mechanisms
+        mt = h.MechanismType(0)
+
+        for i in range(int(mt.count())):
+            mt.select(i)
+            mt.selected(mname)
+            name = mname[0]
+            if name in center_seg_dir:
+                mechs_present.append(name)
+
+
+        for mech in mechs_present:
+            my_results = {}
+            ms = h.MechanismStandard(mech, 0)
+            for j in range(int(ms.count())):
+                n = int(ms.name(mname, j))
+                name = mname[0]
+                pvals = []
+                if mech.endswith("_ion"):
+                    pvals = [getattr(seg, name) for seg in sec]
+                else:
+                    mechname = name  # + '_' + mech
+                    for seg in sec:
+                        cm = '' if seg.cm==1 else '2' if seg.cm==2 else 'WrongCmValue'
+                        #print(seg)
+                        if '_table' in mechname or '_arr' in mechname: #added code to reference to a pointer
+                            mechname_nosuffix = mechname[:-len(mech)-1]
+                            if lkp: #reference to the LUT numpy array
+                                if n > 1:
+                                    TypeError('2 values for a table pointer?')
+                                    pvals.append([getattr(seg, mechname)[i] for i in range(n)]) #test
+                                else:
+                                    if 'table' in mechname:
+                                        #print(mechname)
+                                        key = mechname_nosuffix.split('_table')[0]
+                                        ref = numpy_element_ref(self.pylkp[key],0)
+                                        #print(ref,mechname_nosuffix,getattr(seg,mech))
+                                        h.setpointer(ref,mechname_nosuffix,getattr(seg,mech))
+                                    if 'arr' in mechname:
+                                        #print(mechname)
+                                        key = mechname_nosuffix#.split('_arr')[0]
+                                        if key == 'Q_arr' and cm == '2':
+                                            key = 'Q_arr2'
+                                        ref = arrays[key]
+                                        #print(ref,mechname_nosuffix,getattr(seg,mech))
+                                        h.setpointer(ref,mechname_nosuffix,getattr(seg,mech))
+                                    getattr(seg, mechname) #test
+                            else: #reference to a dummy pointer: h.t
+                                if n > 1:
+                                    TypeError('2 values for a table pointer?')
+                                    pvals.append([getattr(seg, mechname)[i] for i in range(n)]) #test
+                                else:
+                                    #print(h._ref_t,mechname_nosuffix,getattr(seg,mech))
+                                    h.setpointer(h._ref_t,mechname_nosuffix,getattr(seg,mech))
+                                    getattr(seg, mechname) #test
+                        elif '_s' in mechname and lkp:
+                            mechname_nosuffix = mechname[:-len(mech)-1] 
+                            #print(seg, mechname, sizes[mechname_nosuffix])
+                            setattr(seg, mechname, sizes[mechname_nosuffix])
+
 
     def Py2ModLookup(self, pylkp):
         ''' Convert a 2D python lookup into amplitude (kPa) and charge (nC/cm2) reference vectors
@@ -870,7 +941,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
         return Aref, Qref, matrix_dict
     
-    def Py2PyLookup(self, pylkp):
+    def Py2PyLookup(self, pylkp, vbt = 0):
         ''' Convert a 2D python lookup into amplitude (kPa) and charge (nC/cm2) python array
             and a dictionary of (2+2*ov)D python matrices for potential (mV) and rate constants (ms-1).
         '''
@@ -880,12 +951,20 @@ class NeuronModel(metaclass=abc.ABCMeta):
         Aref = h.Vector(pylkp.refs['A'] * PA_TO_KPA)
         Qref = h.Vector(pylkp.refs['Q'] * C_M2_TO_NC_CM2)
         overtones = []
-        for ov in range(OVERTONES):
-            #print(f'pylkp.refs: {pylkp.refs}')
-            overtones.append(len(pylkp.refs[f'A_{ov+1}'])) #overtones.append(len(pylkp.refs[f'AQ{ov+1}']))
-            overtones.append(h.Vector(pylkp.refs[f'A_{ov+1}'])._ref_x[0]) #overtones.append(h.Vector(pylkp.refs[f'AQ{ov+1}'])._ref_x[0])
-            overtones.append(len(pylkp.refs[f'B_{ov+1}'])) #overtones.append(len(pylkp.refs[f'phiQ{ov+1}']))
-            overtones.append(h.Vector(pylkp.refs[f'B_{ov+1}'])._ref_x[0]) #overtones.append(h.Vector(pylkp.refs[f'phiQ{ov+1}'])._ref_x[0])
+        if vbt:
+            for ov in range(OVERTONES):
+                #print(f'pylkp.refs: {pylkp.refs}')
+                overtones.append(len(pylkp.refs[f'A_{ov+1}'])) #overtones.append(len(pylkp.refs[f'AQ{ov+1}']))
+                overtones.append(h.Vector(pylkp.refs[f'A_{ov+1}'])) #overtones.append(h.Vector(pylkp.refs[f'AQ{ov+1}'])._ref_x[0])
+                overtones.append(len(pylkp.refs[f'B_{ov+1}'])) #overtones.append(len(pylkp.refs[f'phiQ{ov+1}']))
+                overtones.append(h.Vector(pylkp.refs[f'B_{ov+1}'])) #overtones.append(h.Vector(pylkp.refs[f'phiQ{ov+1}'])._ref_x[0])
+        else:
+            for ov in range(OVERTONES):
+                #print(f'pylkp.refs: {pylkp.refs}')
+                overtones.append(len(pylkp.refs[f'A_{ov+1}'])) #overtones.append(len(pylkp.refs[f'AQ{ov+1}']))
+                overtones.append(h.Vector(pylkp.refs[f'A_{ov+1}'])._ref_x[0]) #overtones.append(h.Vector(pylkp.refs[f'AQ{ov+1}'])._ref_x[0])
+                overtones.append(len(pylkp.refs[f'B_{ov+1}'])) #overtones.append(len(pylkp.refs[f'phiQ{ov+1}']))
+                overtones.append(h.Vector(pylkp.refs[f'B_{ov+1}'])._ref_x[0]) #overtones.append(h.Vector(pylkp.refs[f'phiQ{ov+1}'])._ref_x[0])   
 
         # Convert lookup tables to hoc matrices
         local_S_TO_MS = 1 if ABERRA else S_TO_MS # if ABERRA: no conversion needed
@@ -930,7 +1009,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
         # Convert to HOC equivalents and store them as class attributes
         if OVERTONES:
-            self.Aref, self.Qref, self.lkp, self.overtones = self.Py2PyLookup(self.pylkp) #expand 2D to multiD (depending on overtones)
+            self.Aref, self.Qref, self.lkp, self.overtones = self.Py2PyLookup(self.pylkp, vbt = VERBATIM) #expand 2D to multiD (depending on overtones)
         else:
             self.Aref, self.Qref, self.lkp = self.Py2ModLookup(self.pylkp)
         if Cm0_var2:
@@ -945,6 +1024,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
             :param matrix: HOC Matrix object with values to be linearly interpolated
             :param xref: HOC Vector object with reference values for interpolation in 1st dimension
             :param yref: HOC Vector object with reference values for interpolation in 2nd dimension
+            :Cm0: resting membrane capacitance
             :return: the updated HOC object
         '''
         # Check conformity of inputs
@@ -1005,13 +1085,15 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
     @staticmethod
     def setPyFuncTable(mechname, fname, matrix, xref, yref, Cm0=None, overtones=None):
-        ''' Set the content of a 2-dimensional FUNCTION TABLE of a density mechanism.
+        ''' Set the content of a 2-dimensional FUNCTION TABLE of a density mechanism with a python (>2D) matrix output table and overtone input vectors.
 
             :param mechname: name of density mechanism
             :param fname: name of the FUNCTION_TABLE reference in the mechanism
             :param matrix: HOC Matrix object with values to be linearly interpolated
             :param xref: HOC Vector object with reference values for interpolation in 1st dimension
             :param yref: HOC Vector object with reference values for interpolation in 2nd dimension
+            :Cm0: resting membrane capacitance
+            :overtones: overtone input vectors
             :return: the updated HOC object
         '''
         # Check conformity of inputs
@@ -1083,17 +1165,23 @@ class NeuronModel(metaclass=abc.ABCMeta):
         if Cm0_var2:
             self.setModLookup(*args, **kwargs)
             logger.debug(f'setting {self.mechname} function tables')
-            for k, v in self.lkp.items():
-                if OVERTONES:
-                    if v.shape[1] == len(self.Qref):
-                        self.setPyFuncTable(self.mechname, k, v, self.Aref, self.Qref,overtones=self.overtones)
-                    else:
-                        self.setPyFuncTable(self.mechname, k, v, self.Aref, self.Qextref, overtones=self.overtones) 
-                else: 
-                    if v.ncol() == self.Qref.size():
-                        self.setFuncTable(self.mechname, k, v, self.Aref, self.Qref)
-                    else:
-                        self.setFuncTable(self.mechname, k, v, self.Aref, self.Qextref)
+            if OVERTONES and VERBATIM:
+                for sec in self.seclist:
+                    #print(sec.nrnsec)
+                    self.psection(sec.nrnsec,lkp=1)
+                #quit()
+            else:
+                for k, v in self.lkp.items():
+                    if OVERTONES:
+                        if v.shape[1] == len(self.Qref):
+                            self.setPyFuncTable(self.mechname, k, v, self.Aref, self.Qref,overtones=self.overtones)
+                        else:
+                            self.setPyFuncTable(self.mechname, k, v, self.Aref, self.Qextref, overtones=self.overtones) 
+                    else: 
+                        if v.ncol() == self.Qref.size():
+                            self.setFuncTable(self.mechname, k, v, self.Aref, self.Qref)
+                        else:
+                            self.setFuncTable(self.mechname, k, v, self.Aref, self.Qextref)
         else:
             self.setModLookup(*args, **kwargs)
             logger.debug(f'setting {self.mechname} function tables')

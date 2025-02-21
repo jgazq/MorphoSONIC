@@ -677,8 +677,7 @@ class Section(baseSection):
                 if var in self.nrnsec.psection()['density_mechs'][namemech].keys():
                     return self.setProbe(f'{var}_{namemech}', loc=loc, **kwargs)
                 else:
-                    print(f'Variable: {var} is not defined in the mechanism: {namemech} of section: {self.nrnsec} ')
-                    return None #POTENTIAL RISK: if this probe is called it will give None
+                    raise ValueError(f'Variable: {var} is not defined in the mechanism: {namemech} of section: {self.nrnsec} ')
             else:
                 raise ValueError('No mechname is given')
         return self.setProbe(f'{var}_{self.mechname}', loc=loc, **kwargs)
@@ -784,12 +783,16 @@ class MechSection(Section):
             #quit()
             if SIMPLIFIED:
                 states_mechs = []
+            overtones = []
+            for ov in range(OVERTONES):
+                overtones += [(f'a{ov+1}', self.random_mechname), (f'b{ov+1}', self.random_mechname)]
             #print(f"self.nrnsec:{self.nrnsec}:") # print the current section
             #print(f"self.states: {self.states}\n\nself.relevant_mechs: {self.relevant_mechs}\n") # print all the states of the pneuron and the relevant mechs of the current section
             #print(f"relevant_states: {states_mechs}\n\n") # print the determined relevant states based on the inserted mechanisms in that particular section
             return {
                 **super().setProbes(),
-                **{k: self.setMechProbe(self.alias(k[0]),namemech=mech_mapping[k[-1]]) for k in states_mechs}
+                **{k: self.setMechProbe(self.alias(k[0]),namemech=mech_mapping[k[-1]]) for k in states_mechs},
+                **{k: self.setMechProbe(self.alias(k[0]),namemech=k[-1]) for k in overtones}
             }
         return {
             **super().setProbes(),
@@ -848,7 +851,10 @@ def getCustomConnectSection(section_class):
                 relevant_mechs.remove('extracellular') if 'extracellular' in relevant_mechs else None
                 relevant_mechs.remove('CaDynamics_E2') if 'CaDynamics_E2' in relevant_mechs else None#; relevant_mechs.remove('pas')
                 self.relevant_mechs = relevant_mechs
-                self.random_mechname = relevant_mechs[-1] if relevant_mechs else None #put this in commentary after -> temporal solution #POTENTIAL RISK
+                if relevant_mechs:
+                    self.random_mechname = relevant_mechs[-1]
+                else:
+                    raise ValueError("No relevant mechs.")
                 key = self.random_mechname
             self.vref = f'Vm_{key}'
             self.ex = 0.       # mV

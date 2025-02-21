@@ -74,7 +74,8 @@ sep_12 = 0 #lookups for 0.01 and 0.02 are separated (done in parallel instead of
 Cm0_var2 = 1 #also considers Cm0 variations but different implementation: LUT and LUT2
 SIMPLIFIED = 1 #this removes the probes of the gating parameters so they are not recorded during the simulation
 OVERTONES = 1 #the number of overtones that need to be included
-DEBUG_OV = 1 #debugging the code with overtone implementation
+DEBUG_OV = 0 #debugging the code with overtone implementation
+VERBATIM = 1 if OVERTONES else 0 #LUT are implemented using an interpolation method defined in the VERBATIM block #only allow verbatim to work if overtones are used
 
 Cm0_map = {0.02: '0_02', 1.: '', 2.: '2'}
 Cm0_actual = {1.: '', 2.: '2'}
