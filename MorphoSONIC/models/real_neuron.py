@@ -216,7 +216,7 @@ class nrn(SpatiallyExtendedNeuronModel):
             mt1.selected(mname)
             point_mech.append(mname[0])
 
-        print(f'distributed mechs: {distr_mech}, point process mechs: {point_mech}')
+        #print(f'distributed mechs: {distr_mech}, point process mechs: {point_mech}')
         if VERBATIM:
             for sec in h.allsec():
                 self.psection(sec)

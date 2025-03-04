@@ -784,8 +784,14 @@ class MechSection(Section):
             if SIMPLIFIED:
                 states_mechs = []
             overtones = []
+            if 'soma' in str(self.nrnsec): #add stimon for plotting
+                overtones += [('stimon', self.random_mechname)]
+                overtones += [('i', 'pas_eff'), ('ica', 'Ca_HVA'), ('ica', 'Ca_LVAst'), ('ihcn', 'Ih'), ('ik', 'SK_E2'), ('ik', 'SKv3_1')]
+
             for ov in range(OVERTONES):
-                overtones += [(f'a{ov+1}', self.random_mechname), (f'b{ov+1}', self.random_mechname)]
+                overtones += [(f'a{ov+1}', self.random_mechname), (f'b{ov+1}', self.random_mechname)] #input overtones (Q)
+                if self.nrnsec.cm != 0.02: #only consider sections that contain output overtones
+                    overtones += [(f'A_{ov+1}_val', self.random_mechname), (f'B_{ov+1}_val', self.random_mechname)] #output overtones (V)
             #print(f"self.nrnsec:{self.nrnsec}:") # print the current section
             #print(f"self.states: {self.states}\n\nself.relevant_mechs: {self.relevant_mechs}\n") # print all the states of the pneuron and the relevant mechs of the current section
             #print(f"relevant_states: {states_mechs}\n\n") # print the determined relevant states based on the inserted mechanisms in that particular section

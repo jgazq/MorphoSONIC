@@ -527,7 +527,11 @@ class HybridNetwork:
         ''' Update capacitance-dependent network components. '''
         # Update membrane capacitance vector
         self.cm = np.array([sec.getCm(x=0.5) for sec in self.seclist]) #BREAKPOINT
-        #print(self.cm)
+        if DEBUG_OV:
+            if np.sum(np.where(self.cm < 0, 1, 0)):
+                print(self.cm)
+                print(h.t)
+                quit()
         # Modify Gacm matrix accordingly
         #print(self.Gacm.printf())
         self.Gacm.setCNorm(self.cm)

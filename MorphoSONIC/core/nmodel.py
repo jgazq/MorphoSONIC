@@ -424,17 +424,68 @@ class NeuronModel(metaclass=abc.ABCMeta):
         print(f'tstop = {tstop} ms') #LOG OUTPUT
         print(F"T_up = {T_up_step} ms")
         while h.t < tstop: #BREAKPOINT
-            #print(f'\n\n new timestep: {h.t}\n\n')
-
             if DEBUG_OV:
+                #print(f'\n\n new timestep: {h.t}\n\n')
+                #print(self.all_probes['soma0'].keys()); quit()
                 for sec in self.seclist:
                     nrnsec = sec.nrnsec
-                    print(nrnsec.psection()["density_mechs"].keys())
-                    print(f"v = {nrnsec.v}, Vm: {nrnsec.Vm_pas_eff}, A_t: {nrnsec.A_t_pas_eff}, a1: {nrnsec.a1_pas_eff}, b1: {nrnsec.b1_pas_eff}")
+                    #print(f"stimon = {nrnsec.stimon_pas_eff}")
+                    if h.t > 3:
+                        pass
+                        #plt.plot(np.array(self.t), np.array(self.all_probes['soma0']['Vm']),label='Vm')
+                    #print(f"v = {nrnsec.v}")
                     break
-
             if h.t > t_next:
                 print(f'h.t = {h.t}') #LOG OUTPUT
+                if DEBUG_OV:
+                    for sec in self.seclist:
+                        nrnsec = sec.nrnsec
+                        print(nrnsec.psection()["density_mechs"].keys())
+                        print(f"v = {nrnsec.v}, Vm: {nrnsec.Vm_pas_eff}, A_t: {nrnsec.A_t_pas_eff}")
+                        if OVERTONES:
+                            print(f"a1: {nrnsec.a1_pas_eff}, b1: {nrnsec.b1_pas_eff}")
+                            print(f"V_val = {nrnsec.V_val_pas_eff}")
+                            print(f"A1_val = {nrnsec.A_1_val_pas_eff}")
+                        print(f"stimon = {nrnsec.stimon_pas_eff}")
+                        import matplotlib.pyplot as plt
+                        from sklearn.preprocessing import MinMaxScaler
+                        scaler = MinMaxScaler()
+                        print(np.array(self.all_probes['soma0'].keys()))
+                        vm = np.array(self.all_probes['soma0']['Vm'])
+                        vm_scaled = scaler.fit_transform(vm.reshape(-1, 1)).flatten()
+                        plt.plot(np.array(self.t), vm,label='Vm')
+                        plt.show()
+
+                        ipas = np.array(self.all_probes['soma0'][('i', 'pas_eff')])
+                        ipas_scaled = scaler.fit_transform(ipas.reshape(-1, 1)).flatten()
+                        plt.plot(np.array(self.t), ipas,label='ipas')
+                        icaH = np.array(self.all_probes['soma0'][('ica', 'Ca_HVA')])
+                        icaH_scaled = scaler.fit_transform(icaH.reshape(-1, 1)).flatten()
+                        plt.plot(np.array(self.t), icaH,label='icaH')
+                        icaL = np.array(self.all_probes['soma0'][('ica', 'Ca_LVAst')])
+                        icaL_scaled = scaler.fit_transform(icaL.reshape(-1, 1)).flatten()
+                        plt.plot(np.array(self.t), icaL,label='icaL')
+                        ih = np.array(self.all_probes['soma0'][('ihcn', 'Ih')])
+                        ih_scaled = scaler.fit_transform(ih.reshape(-1, 1)).flatten()                        
+                        plt.plot(np.array(self.t), ih,label='ih')
+                        ik2 = np.array(self.all_probes['soma0'][('ik', 'SK_E2')])
+                        ik2_scaled = scaler.fit_transform(ik2.reshape(-1, 1)).flatten()
+                        plt.plot(np.array(self.t), ik2,label='ik2')
+                        ik3 = np.array(self.all_probes['soma0'][('ik', 'SKv3_1')])
+                        ik3_scaled = scaler.fit_transform(ik3.reshape(-1, 1)).flatten()
+                        plt.plot(np.array(self.t),ik3 ,label='ik3')
+                        #plt.plot(np.array(self.t), np.array(self.all_probes['soma0'][('ik', 'SKv3_1')]),label='ik3')
+                        stimon = (1 - self.all_probes['soma0'][('stimon', 'pas_eff')]) * -85 + self.all_probes['soma0'][('stimon', 'pas_eff')] * np.array(self.all_probes['soma0']['Vm'])
+                        #plt.plot(np.array(self.t), np.array(stimon))
+                        plt.legend()
+                        plt.show()
+                        #plt.plot(np.array(self.t), np.array(self.all_probes['soma0'][('a1', 'pas_eff')]),label='a1')
+                        #plt.plot(np.array(self.t), np.array(self.all_probes['soma0'][('b1', 'pas_eff')]),label='b1')
+                        #plt.plot(np.array(self.t), np.array(self.all_probes['soma0'][('A_1_val', 'pas_eff')]),label='A1')
+                        #plt.plot(np.array(self.t), np.array(self.all_probes['soma0'][('B_1_val', 'pas_eff')]),label='B1')
+                        #plt.legend()
+                        #plt.show()
+                        break
                 t_next += t_step
             if OVERTONES:
                 if h.t > T_up_next:
@@ -791,8 +842,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
             for sec in self.seclist:
                 for seg in sec.nrnsec:
                     for mech in sec.relevant_mechs:
-                        setattr(seg,f'a1_{mech}',Ak[iterator])
-                        setattr(seg,f'b1_{mech}',Bk[iterator])
+                        setattr(seg,f'a1_{mech}', 0) #setattr(seg,f'a1_{mech}', 0) #setattr(seg,f'a1_{mech}', Ak[iterator])
+                        setattr(seg,f'b1_{mech}', 0) #setattr(seg,f'b1_{mech}', 0) #setattr(seg,f'b1_{mech}', Bk[iterator])
                     iterator += 1
 
 
@@ -801,6 +852,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
         if update_ov:
 
+            print('START UPDATE')
             #jac = self.calc_jac()
             A_bounds = (-0.000606762745, 0.000309016993)
             B_bounds = (-0.00029388, 0.00095105)
@@ -815,6 +867,7 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 print(f'solution range : [{min(solution)}, {max(solution)}]')
 
             self.update_overtones(solution)
+            print('END UPDATE')
 
         h.fadvance()
 
@@ -866,7 +919,6 @@ class NeuronModel(metaclass=abc.ABCMeta):
 
 
         for mech in mechs_present:
-            my_results = {}
             ms = h.MechanismStandard(mech, 0)
             for j in range(int(ms.count())):
                 n = int(ms.name(mname, j))
@@ -889,6 +941,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
                                     if 'table' in mechname:
                                         #print(mechname)
                                         key = mechname_nosuffix.split('_table')[0]
+                                        if not key.endswith(cm): # for V and overtones
+                                            key += cm
                                         ref = numpy_element_ref(self.pylkp[key],0)
                                         #print(ref,mechname_nosuffix,getattr(seg,mech))
                                         h.setpointer(ref,mechname_nosuffix,getattr(seg,mech))
@@ -911,6 +965,8 @@ class NeuronModel(metaclass=abc.ABCMeta):
                                     getattr(seg, mechname) #test
                         elif '_s' in mechname and lkp:
                             mechname_nosuffix = mechname[:-len(mech)-1] 
+                            if mechname_nosuffix == 'Q_s' and cm == '2':
+                                mechname_nosuffix = 'Q_s2'
                             #print(seg, mechname, sizes[mechname_nosuffix])
                             setattr(seg, mechname, sizes[mechname_nosuffix])
 
@@ -1169,7 +1225,6 @@ class NeuronModel(metaclass=abc.ABCMeta):
                 for sec in self.seclist:
                     #print(sec.nrnsec)
                     self.psection(sec.nrnsec,lkp=1)
-                #quit()
             else:
                 for k, v in self.lkp.items():
                     if OVERTONES:
@@ -1512,6 +1567,9 @@ class SpatiallyExtendedNeuronModel(NeuronModel):
                     all_probes[k] = sec.setProbes() #puts a probe for every section in a dictionary
         if len(no_probes) > 0: #only print if there is a probeless section
             print(f'No probes for these sections: {no_probes}\n')
+        if DEBUG_OV:
+            self.t = t
+            self.all_probes = all_probes
 
         # Integrate model
         self.integrate(pp, dt, atol)
