@@ -14,6 +14,8 @@ from PySONIC.postpro import detectSpikes
 from ..constants import *
 from ..core import SpatiallyExtendedNeuronModel, addSonicFeatures
 
+from neuron import h
+
 
 @addSonicFeatures
 class RadialModel(SpatiallyExtendedNeuronModel):
@@ -186,6 +188,60 @@ class RadialModel(SpatiallyExtendedNeuronModel):
 
 
 def surroundedSonophore(pneuron, a, fs, *args, **kwargs):
-    model = RadialModel(pneuron, a, a / np.sqrt(fs), *args, **kwargs)
+    if not OVERTONES:
+        model = RadialModel(pneuron, a, a / np.sqrt(fs), *args, **kwargs) 
+    else:
+        model = RadialModel(pneuron, a, a / np.sqrt(fs), *args, inter_fs=fs, **kwargs) #RS with overtones #inter_fs=fs
+
     model.a = a
+    if OVERTONES:
+        #add realistic neuron variables/methods
+
+        model.connections_reversed = []
+        model.indexes = []
+        model.segments = []
+        model.nrnseclist = []
+        model.connectdict = {}
+        model.connectionsseg = []
+        model.connectdictseg = {}
+        model.seginsec = []
+
+        #model.seclist = [model.sections['nodes']['center'], model.sections['nodes']['periphery']] #already defined!
+        iterator = 0
+        for seci,sec in enumerate(h.allsec()):
+            model.nrnseclist.append(sec)
+            nseg = sec.nseg
+            model.indexes.append([e for e in range(iterator,iterator+nseg)])
+            iterator += nseg
+            sec.v = model.pneuron.Vm0*sec.cm
+            for segi,seg in enumerate(sec):
+                model.segments.append(seg)
+                model.seginsec.append(seci)
+        for e in model.connections:
+            model.connections_reversed.append((e[1],e[0])) # creating and adding the (y,x) connections
+
+        for secP, secN in zip(model.seclist, model.nrnseclist):
+            secP.nrnsec = secN
+            secP.random_mechname = 'RSauto'
+            secP.relevant_mechs = ['RSauto']
+
+        for (i,j) in model.connections:
+            model.connectionsseg.append((model.indexes[i][-1],model.indexes[j][0]))
+            if i in model.connectdict:
+                model.connectdict[i] += [j]
+            else:
+                model.connectdict[i] = [j]
+            if model.indexes[i][-1] in model.connectdictseg:
+                model.connectdictseg[model.indexes[i][-1]] += [model.indexes[j][0]]
+            else:
+                model.connectdictseg[model.indexes[i][-1]] = [model.indexes[j][0]]
+            if j in model.connectdict:
+                model.connectdict[j] += [i]
+            else:
+                model.connectdict[j] = [i]
+            if model.indexes[j][0] in model.connectdictseg:
+                model.connectdictseg[model.indexes[j][0]] += [model.indexes[i][-1]]
+            else:
+                model.connectdictseg[model.indexes[j][0]] = [model.indexes[i][-1]]
+
     return model

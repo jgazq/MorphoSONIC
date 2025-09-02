@@ -42,7 +42,7 @@ class Probe(hclass(h.Vector)):
         ''' Initialization. '''
         super().__init__()
         self.factor = factor
-        self.record(variable, 0.025) #Dt = 0.025 ms
+        self.record(variable) #self.record(variable, 0.025) #Dt = 0.025 ms
 
     def to_array(self):
         ''' Return itself as a numpy array. '''
@@ -784,9 +784,26 @@ class MechSection(Section):
             if SIMPLIFIED:
                 states_mechs = []
             overtones = []
+            #stimon and currents are not overtones but they are implemented in the same way and not as the gating variables
+            #these add a lot of overhead but easier for debugging
             if 'soma' in str(self.nrnsec): #add stimon for plotting
                 overtones += [('stimon', self.random_mechname)]
-                overtones += [('i', 'pas_eff'), ('ica', 'Ca_HVA'), ('ica', 'Ca_LVAst'), ('ihcn', 'Ih'), ('ik', 'SK_E2'), ('ik', 'SKv3_1')]
+                overtones += [('i', 'pas_eff'), ('ica', 'Ca_HVA'), ('ica', 'Ca_LVAst'), ('ihcn', 'Ih'), ('ina', 'NaTs2_t'), ('ik', 'SK_E2'), ('ik', 'SKv3_1')]
+            if 'apic' in str(self.nrnsec): #add stimon for plotting
+                overtones += [('stimon', self.random_mechname)]
+                overtones += [('i', 'pas_eff2'), ('ihcn', 'Ih2'), ('ik', 'Im2'), ('ina', 'NaTs2_t2'), ('ik', 'SKv3_12')]
+            if 'dend' in str(self.nrnsec): #add stimon for plotting
+                overtones += [('stimon', self.random_mechname)]
+                overtones += [('i', 'pas_eff2'), ('ihcn', 'Ih2')]
+            if 'Node' in str(self.nrnsec):
+                overtones += [('stimon', self.random_mechname)]
+                overtones += [('i', 'pas_eff'), ('ik', 'K_Pst'), ('ik', 'K_Tst'), ('ina', 'NaTa_t'), ('ina', 'Nap_Et2'), ('ik', 'SKv3_1')]
+            if 'Myelin' in str(self.nrnsec):
+                overtones += [('stimon', self.random_mechname)]
+                overtones += [('i', 'pas_eff0_02')]
+            if 'Unmyelin' in str(self.nrnsec):
+                overtones += [('stimon', self.random_mechname)]
+                overtones += [('i', 'pas_eff'), ('ik', 'K_Pst'), ('ik', 'K_Tst'), ('ina', 'NaTa_t'), ('ina', 'Nap_Et2'), ('ik', 'SKv3_1')]
 
             for ov in range(OVERTONES):
                 overtones += [(f'a{ov+1}', self.random_mechname), (f'b{ov+1}', self.random_mechname)] #input overtones (Q)
@@ -895,6 +912,22 @@ def getCustomConnectSection(section_class):
             #     #print(f"{self.getValue('v', **kwargs)} / {self.getVm(**kwargs)} = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #shows how the capacitance is calculated #BREAKPOINT
             #     #print(f"Cm = {self.getValue('v', **kwargs) / self.getVm(**kwargs)}") #to check the general values of Cm => doesn't deviate much from 1
             #     pass
+
+            # if OVERTONES and self.nrnsec.cm != 0.02:
+            # #if np.sign(self.getValue('v', **kwargs)) != np.sign(self.getVm(**kwargs)):
+            #     v = self.getValue('v', **kwargs)
+            #     a1 = self.getValue(f'a1_{self.relevant_mechs[-1]}', **kwargs)
+            #     b1 = self.getValue(f'b1_{self.relevant_mechs[-1]}', **kwargs)
+            #     q1 = np.sqrt(a1**2 + b1**2)
+            #     phi1 = -np.arctan2(b1,a1)
+            #     v1 = v - q1*np.cos(2*np.pi*500*h.t + phi1)*1e5
+            #     #if 'Node[0]' in str(self.nrnsec):
+            #     if np.sign(v1) != np.sign(self.getVm(**kwargs)):
+            #         print(self.nrnsec)
+            #         print(f'Cm0 = {self.nrnsec.cm}: vosc = {v} - {q1*np.cos(2*np.pi*500*h.t + phi1)*1e5} = {v1}')
+            #         print(f'Cm0 = {self.nrnsec.cm}: vosc = {v} - {q1}*{np.cos(2*np.pi*500*h.t + phi1)*1e5} = {v1}')
+            #         print(f'Cm = {v1}/{self.getVm(**kwargs)} = {v1 / self.getVm(**kwargs)}')
+            #     return v1 / self.getVm(**kwargs)
             return self.getValue('v', **kwargs) / self.getVm(**kwargs)
 
         def connect(self, parent):

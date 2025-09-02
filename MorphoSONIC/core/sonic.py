@@ -246,7 +246,10 @@ def addSonicFeatures(Base):
                 self.gmax = None
             self.inter_fs = inter_fs
             self.inter_pylkp = None
-            super().__init__(*args, **kwargs)
+            if not OVERTONES:
+                super().__init__(*args, **kwargs)
+            else:
+                super().__init__(*args, fs=inter_fs, **kwargs) #RS with overtones #fs=inter_fs
 
         @property
         def inter_fs(self):

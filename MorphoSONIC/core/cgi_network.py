@@ -392,11 +392,6 @@ class HybridNetwork:
             :param k: parameter name
             :return: 1D numpy array with parameter values
         '''
-        #if ABERRA:
-            # for e in self.seclist:
-            #     print(e.nrnsec,e.random_mechname)
-            #self.eff_sections = [(e.random_mechname != None and e.random_mechname != False) for e in self.seclist] # this is not necessary anymore as all sections have a "random mechname"
-            #return np.array([getattr(sec, k) for sec in [e for i,e in enumerate(self.seclist) if self.eff_sections[i]]])
         return np.array([getattr(sec, k) for sec in self.seclist])
 
     def setGlobalComponents(self):
@@ -422,9 +417,6 @@ class HybridNetwork:
         self.Gacm = pointerMatrix(NormalizedConductanceMatrix)(
             self.ga, links=self.connections, rnorm=self.Am, cnorm=self.cm)
         #print(self.Gacm.printf()) ;print('self.Gacm.printf()') ;quit()
-        #if ABERRA:
-            #print(f'self.eff_sections: {self.eff_sections}') #this list contains which sections have a random_mechname and thus a probe and which have None
-            #self.Gacm.rem_rows_cols(self.eff_sections,self.eff_sections) # -> don't remove any columns, all sections need to be included
 
         if not self.use_explicit_iax:
             self.Gacm.addRef(self.G, 0, 0)
@@ -527,11 +519,12 @@ class HybridNetwork:
         ''' Update capacitance-dependent network components. '''
         # Update membrane capacitance vector
         self.cm = np.array([sec.getCm(x=0.5) for sec in self.seclist]) #BREAKPOINT
-        if DEBUG_OV:
-            if np.sum(np.where(self.cm < 0, 1, 0)):
-                print(self.cm)
-                print(h.t)
-                quit()
+        if np.sum(np.where(self.cm < 0, 1, 0)):
+            pass
+            print('negative',flush=1)
+            #print(self.cm)
+            #print(h.t)
+            #quit()
         # Modify Gacm matrix accordingly
         #print(self.Gacm.printf())
         self.Gacm.setCNorm(self.cm)

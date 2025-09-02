@@ -72,10 +72,16 @@ ABERRA = 1 #to enable code adaptations for an Aberra cell which has multiple mec
 Cm0_var = 0 #to enable adaptations in the code when taking into account Cm0 variations along the sections #DEPRECATED
 sep_12 = 0 #lookups for 0.01 and 0.02 are separated (done in parallel instead of in series) #DEPRECATED
 Cm0_var2 = 1 #also considers Cm0 variations but different implementation: LUT and LUT2
-SIMPLIFIED = 1 #this removes the probes of the gating parameters so they are not recorded during the simulation
-OVERTONES = 0 #the number of overtones that need to be included
+SIMPLIFIED = 0 # if enabled: this removes the probes of the gating parameters so they are not recorded during the simulation
+OVERTONES = 0 #1 #the number of overtones that need to be included
 DEBUG_OV = 0 #debugging the code with overtone implementation
 VERBATIM = 1 if OVERTONES else 0 #LUT are implemented using an interpolation method defined in the VERBATIM block #only allow verbatim to work if overtones are used
 
 Cm0_map = {0.02: '0_02', 1.: '', 2.: '2'}
 Cm0_actual = {1.: '', 2.: '2'}
+
+if 0: #for RS with overtones
+    ABERRA = 0
+    Cm0_var2 = 0
+    OVERTONES = 1 #1
+    VERBATIM = 1 if OVERTONES else 0

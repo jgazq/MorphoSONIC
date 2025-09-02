@@ -173,14 +173,14 @@ class nrn(SpatiallyExtendedNeuronModel):
                     if mech_ext not in unexisting_mech:
                         unexisting_mech.append(mech_ext) #all the other mechanisms
             #sec.cm = 1
-            sec.v = -75*sec.cm #to initialize the section starting value properly
+            sec.v = self.pneuron.Vm0*sec.cm #to initialize the section starting value properly #self.pneuron.Vm0 should be -75
             #print(sec.v)
             if self.decoupling: #and 'Node' not in str(sec): #('apic' not in str(sec) and 'dend' not in str(sec) and 'soma ' not in str(sec)): #to decouple all sections by putting the axial resistance very high so there is no axial currents to influence other sections
                 sec.Ra = 1e20 # to decouple the different sections from each other
             # else:   
             #     print(f'connected: {sec}')
-        for sec_soma in self.cell.soma: #redefine the voltage of the soma as this value adapts when changing v of other sections (which is done in this line: sec.v = -75*sec.cm)
-            sec_soma.v = -75*sec_soma.cm
+        for sec_soma in self.cell.soma: #redefine the voltage of the soma as this value adapts when changing v of other sections (which is done in this line: sec.v = self.pneuron.Vm0*sec.cm)
+            sec_soma.v = self.pneuron.Vm0*sec_soma.cm
 
         existing_mech.sort()
         unexisting_mech.sort()
@@ -193,6 +193,14 @@ class nrn(SpatiallyExtendedNeuronModel):
         print('creating sections in nrn')
         h.setParamsAdultHuman() 
         h.cell_chooser(self.cell_nr); print('')
+        if self.comp2:
+            for sec in h.allsec(): 
+                if not ('axon' in str(sec) or 'soma' in str(sec)): 
+                    h.delete_section(sec=sec)
+        if self.nocmvar:
+            for sec in h.allsec():
+                if sec.cm == 2:
+                    sec.cm = 1
         #h("forall delete_section()") #to delete all sections in hoc -> __dell__ doesn't work because these sections are not assigned to the class (self)
         # new_dir = h.getcwd()+"cells/"+h.cell_names[cell_nr-1].s #to change the directory in the morphology file -> doesn't work
         # h(f"chdir({new_dir})") #change directory
@@ -236,7 +244,12 @@ class nrn(SpatiallyExtendedNeuronModel):
                 #     print(f'connected: {sec}')
         if VERBATIM:
             for sec in h.allsec():
-                self.psection(sec)
+                if self.comp2:
+                    if not ('axon' in str(sec) or 'soma' in str(sec)): 
+                        continue
+                print(sec,sec.children())
+                self.psection(sec) #set pointers in all mechanisms for each section
+                print('Done')
 
         "first create a dictionary for every type of compartment by creating a python section wrapper around the nrn section"
 
@@ -246,28 +259,43 @@ class nrn(SpatiallyExtendedNeuronModel):
             if 'axon' in str(e):
                 axons[eval(f"'axon{len(axons.keys())}'")] = self.createSection(eval(f"'axon[{len(axons.keys())}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e)
             elif 'Node' in str(e):
+                if self.comp2:
+                    continue 
                 nodes[eval(f"'node{len(nodes.keys())}'")] = self.createSection(eval(f"'node[{len(nodes.keys())}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e)
             elif 'Myelin' in str(e):
+                if self.comp2:
+                    continue 
                 myelins[eval(f"'myelin{len(myelins.keys())}'")] = self.createSection(eval(f"'myelin[{len(myelins.keys())}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e)
             elif 'Unmyelin' in str(e):
+                if self.comp2:
+                    continue 
                 unmyelins[eval(f"'unmyelin{len(unmyelins.keys())}'")] = self.createSection(eval(f"'unmyelin[{len(unmyelins.keys())}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e)
             else:
                 raise TypeError(f'Undefined section ecountered: {str(e)}')
         #axons = {eval(f"'axon{i}'"): self.createSection(eval(f"'axon[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.axonal)}
-        apicals = {eval(f"'apical{i}'"): self.createSection(eval(f"'apical[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.apical)}
-        basals = {eval(f"'basal{i}'"): self.createSection(eval(f"'basal[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.basal)}
+        if not self.comp2:
+            apicals = {eval(f"'apical{i}'"): self.createSection(eval(f"'apical[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.apical)} #2comp
+            basals = {eval(f"'basal{i}'"): self.createSection(eval(f"'basal[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(self.cell.basal)} #2comp
         #nodes = {eval(f"'node{i}'"): self.createSection(eval(f"'node[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Node)}
         #myelins = {eval(f"'myelin{i}'"): self.createSection(eval(f"'myelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Myelin)}
         #unmyelins = {eval(f"'unmyelin{i}'"): self.createSection(eval(f"'unmyelin[{i}]'"),mech=self.mechname,states=self.pneuron.statesNames(),nrnsec=e) for i,e in enumerate(h.Unmyelin)}
 
         #self.sections: dicionary contain dictionaries for each type
-        self.sections = {'soma': somas, 'axon': axons, 'apical': apicals, 'basal': basals, 'node': nodes, 'myelin': myelins, 'unmyelin': unmyelins} #no axon -> replaced with Node, Myelin and Unmyelin #
+        if self.comp2:
+            self.sections = {'soma': somas, 'axon': axons} #2comp
+        else:
+            #self.sections = {'soma': somas, 'axon': axons, 'apical': apicals, 'basal': basals, 'node': nodes, 'myelin': myelins, 'unmyelin': unmyelins} #no axon -> replaced with Node, Myelin and Unmyelin #2comp
+            self.sections = {'soma': somas, 'axon': axons, 'basal': basals,'apical': apicals, 'myelin': myelins, 'node': nodes, 'unmyelin': unmyelins} #put it in the same order as when calling h.allsec() for future compatibility
         #self.seclist: contains all python sections in a list
-        self.seclist = [*list(somas.values()), *list(axons.values()), *list(apicals.values()), *list(basals.values()), *list(nodes.values()), *list(myelins.values()), *list(unmyelins.values())] #
+        if self.comp2:
+            self.seclist = [*list(somas.values()), *list(axons.values())] #2comp
+        else:
+            self.seclist = [*list(somas.values()), *list(axons.values()), *list(apicals.values()), *list(basals.values()), *list(nodes.values()), *list(myelins.values()), *list(unmyelins.values())] #2comp
+        
         #self.nrnseclist: contains all (original) nrn (hoc) sections in a list 
         self.nrnseclist = [e.nrnsec for e in self.seclist]
-        self.segments = []
-        self.indexes = []
+        self.segments = [] #list containing all the segments
+        self.indexes = [] #double list with first dimension the sections and second dimension the segments with the segment index: [[0] [1 2 3] [4] [5 6 7 8 9] ...]
         iterator = 0
         for sec in self.nrnseclist:
             nseg = sec.nseg
@@ -278,27 +306,87 @@ class nrn(SpatiallyExtendedNeuronModel):
         #print("len(seclist): ",len(self.seclist)) #to check how many sections are defined
         #print('self.nrnseclist',self.nrnseclist) #to check if the creation has been conducted correctly
 
-        self.connections = []
+        self.connections = [] #contains the connections of sections (connections in one way: parent, child)
+        self.connectdict = {} #contains the connections of sections in a dictionary (in both ways)
+        self.connectionsseg = [] #contains the connections of segments (one way connections)
+        self.connectdictseg = {} #contains the connections of segments in a dictionary (connections in both ways)
+        self.seginsec = [] #list containing in which section each segment is (using the segment indexation)
 
-        for sec in self.seclist:
+        #intra-section connections
+        for i, secindex in enumerate(self.indexes): #iterate over sections
+            for j, segindex in enumerate(secindex):
+                self.seginsec.append(i)
+                if j==0:
+                    continue
+                else:
+                    self.connectionsseg.append((secindex[j-1],secindex[j]))
+                    #i -> j
+                    if secindex[j-1] in self.connectdictseg:
+                        self.connectdictseg[secindex[j-1]] += [secindex[j]]
+                    else:
+                       self.connectdictseg[secindex[j-1]] = [secindex[j]]
+                    #j -> i
+                    if secindex[j] in self.connectdictseg:
+                        self.connectdictseg[secindex[j]] += [secindex[j-1]]
+                    else:
+                       self.connectdictseg[secindex[j]] = [secindex[j-1]]
+
+        #inter-section connections
+        for secindex, sec in enumerate(self.seclist):
             #print('sec: ',sec)
             parent, children = sec.nrnsec, sec.nrnsec.children()
             for child in children:
+                if self.comp2:
+                    if not ('axon' in str(child) or 'soma' in str(child)):
+                        continue
                 #print(parent, child); continue
                 #if ('axon' in str(parent) or 'axon' in str(child)): #or ('Myelin' in str(parent) or 'Myelin' in str(child)): #there is an axon that is still a child of the soma even if they are replaced with nodes, myelin and unmyelin
                     #continue
                 #print('parent: ',parent,'child',child)
-                #disconnect in Morpho
-                self.connections.append((self.nrnseclist.index(parent),self.nrnseclist.index(child))) #str(parent),str(child)
-            "lines are moved to init of CustomConnectSection"
-        self.connections_reversed = [] #this list contains both the (x,y)=(parent,child) connection as the (y,x)=(child,parent) connection
+                #disconnect in Morpho -> these sections are disconnected later on
+                i = self.nrnseclist.index(parent)
+                j = self.nrnseclist.index(child)
+                self.connections.append((i, j)) #str(parent),str(child)
+                self.connectionsseg.append((self.indexes[i][-1],self.indexes[j][0]))
+                # i-> j
+                #sections
+                if i in self.connectdict:
+                    self.connectdict[i] += [j]
+                else:
+                    self.connectdict[i] = [j]
+                #segments
+                if self.indexes[i][-1] in self.connectdictseg:
+                    self.connectdictseg[self.indexes[i][-1]] += [self.indexes[j][0]]
+                else:
+                    self.connectdictseg[self.indexes[i][-1]] = [self.indexes[j][0]]
+                # j -> i
+                #connections
+                if j in self.connectdict:
+                    self.connectdict[j] += [i]
+                else:
+                    self.connectdict[j] = [i]
+                #segments
+                if self.indexes[j][0] in self.connectdictseg:
+                    self.connectdictseg[self.indexes[j][0]] += [self.indexes[i][-1]]
+                else:
+                    self.connectdictseg[self.indexes[j][0]] = [self.indexes[i][-1]]
+
+        "lines are moved to init of CustomConnectSection"
+        self.connections_reversed = [] 
         for e in self.connections:
             self.connections_reversed.append((e[1],e[0])) # creating and adding the (y,x) connections
-        self.connections_double = self.connections + self.connections_reversed #adding the original (x,y) connections
+        self.connections_double = self.connections + self.connections_reversed #adding the original (x,y) connections #this list contains both the (x,y)=(parent,child) connection as the (y,x)=(child,parent) connection
         
         self.connections.sort()
         self.connections_reversed.sort()
         self.connections_double.sort() #sort them so they are in order
+        self.connectionsseg.sort()
+        self.connectdict = dict(sorted(self.connectdict.items()))
+        self.connectdictseg = dict(sorted(self.connectdictseg.items()))
+        for e in self.connectdict:
+            self.connectdict[e].sort()
+        for e in self.connectdictseg:
+            self.connectdictseg[e].sort()
 
         #disconnect in hoc
         for sec in h.allsec():
@@ -369,8 +457,10 @@ class Realnrn(nrn):
         self.synapses_enabled = se
         self.cell_nr = cell_nr
         ''''DEBUG variables'''
-        self.decoupling = 0
-        self.increased_gNa = 0
+        self.decoupling = 0 #enable this if all section need to be disconnected
+        self.increased_gNa = 0 #enable this if the conductance of sodium needs to be increased
+        self.nocmvar = 0 #enable this to remove the cm0 variations, only cm0=1 allowed
+        self.comp2 = 0 #enable this to reduce the model to a 2 compartment model: just the soma and the AIS
         #h("strdef cell_name") #variable is defined to get assigned below
         h.load_file("init.hoc")
         #h(f"cell_name = \"{h.cell_names[cell_nr-1].s}\"") #this variable is unfortunately not recognized in the morphology.hoc file
